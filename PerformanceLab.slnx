@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PerformanceLab.Api/PerformanceLab.Api.csproj" />
+    <Project Path="src/PerformanceLab.Application/PerformanceLab.Application.csproj" />
+    <Project Path="src/PerformanceLab.Domain/PerformanceLab.Domain.csproj" />
+    <Project Path="src/PerformanceLab.Infrastructure/PerformanceLab.Infrastructure.csproj" />
+    <Project Path="src/PerformanceLab.Shared/PerformanceLab.Shared.csproj" />
+  </Folder>
+</Solution>
