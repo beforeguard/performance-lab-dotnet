@@ -13,7 +13,7 @@ var scenario = Scenario.Create(
     async context =>
     {
         var response = await httpClient.GetAsync(
-            "https://localhost:5206/users");
+            "http://localhost:5206/users");
 
         return response.IsSuccessStatusCode
             ? Response.Ok()
