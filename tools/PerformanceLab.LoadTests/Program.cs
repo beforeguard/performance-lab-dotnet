@@ -9,15 +9,16 @@ var httpClientHandler = new HttpClientHandler
 using var httpClient = new HttpClient(httpClientHandler);
 
 var scenario = Scenario.Create(
-    "users_baseline",
+    "users_50rps_baseline",
     async context =>
     {
-        var response = await httpClient.GetAsync(
-            "http://localhost:5206/users");
+        var response = await httpClient.GetAsync("http://localhost:5206/users");
 
-        return response.IsSuccessStatusCode
-            ? Response.Ok()
-            : Response.Fail();
+        response.EnsureSuccessStatusCode();
+
+        await response.Content.ReadAsByteArrayAsync();
+
+        return Response.Ok();
     })
     .WithLoadSimulations(
         Simulation.Inject(
