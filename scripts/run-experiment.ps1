@@ -43,11 +43,15 @@ Start-Sleep -Seconds 3
 # -----------------------------
 Write-Host "Running load test..." -ForegroundColor Cyan
 
-$nbomberOutput = dotnet run --project tools/PerformanceLab.LoadTests
-
-# Save raw NBomber output
 $nbomberFile = Join-Path $resultsDir "nbomber.txt"
-$nbomberOutput | Out-File -Encoding utf8 $nbomberFile
+
+Start-Process `
+    -FilePath "dotnet" `
+    -ArgumentList "run --project tools/PerformanceLab.LoadTests" `
+    -NoNewWindow `
+    -RedirectStandardOutput $nbomberFile `
+    -RedirectStandardError "$resultsDir\nbomber-error.txt" `
+    -Wait
 
 # -----------------------------
 # Generate simple experiment report

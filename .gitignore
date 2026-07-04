@@ -403,3 +403,4 @@ FodyWeavers.xsd
 # Performance profiling and load testing
 *.nettrace
 reports/
+results/
