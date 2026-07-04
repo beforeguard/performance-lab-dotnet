@@ -39,6 +39,16 @@ $apiProcess = Start-Process `
 Start-Sleep -Seconds 3
 
 # -----------------------------
+# Run dotnet-counters
+# -----------------------------
+$apiPid = $apiProcess.Id
+
+$counterProcess = Start-Process `
+    -FilePath "dotnet" `
+    -ArgumentList "tool run dotnet-counters monitor --process-id $apiPid" `
+    -PassThru
+
+# -----------------------------
 # Run NBomber
 # -----------------------------
 Write-Host "Running load test..." -ForegroundColor Cyan
@@ -80,8 +90,11 @@ Compare against previous experiment folder in /results
 "@ | Out-File -Encoding utf8 $reportFile
 
 # -----------------------------
-# Stop API
+# Stop Processes
 # -----------------------------
+Write-Host "Stopping dotnet-counters..." -ForegroundColor Cyan
+Stop-Process -Id $counterProcess.Id -Force
+
 Write-Host "Stopping API..." -ForegroundColor Cyan
 Stop-Process -Id $apiProcess.Id -Force
 

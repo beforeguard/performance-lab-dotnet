@@ -1,4 +1,4 @@
-# Baseline v1 – Steady-State Performance
+# Experiment 002 – Steady-State Performance
 
 ## Objective
 
