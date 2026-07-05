@@ -1,4 +1,4 @@
-# Experiment 002 – Steady-State Performance
+# Experiment 001 – Steady-State Performance
 
 ## Objective
 
