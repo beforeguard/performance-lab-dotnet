@@ -43,10 +43,19 @@ Start-Sleep -Seconds 3
 # -----------------------------
 $apiPid = $apiProcess.Id
 
+Write-Host "Starting performance counters..." -ForegroundColor Cyan
+
+$countersFile = Join-Path $resultsDir "counters.json"
+
 $counterProcess = Start-Process `
     -FilePath "dotnet" `
-    -ArgumentList "tool run dotnet-counters monitor --process-id $apiPid" `
-    -PassThru
+    -ArgumentList "tool run dotnet-counters collect --process-id $apiPid --format csv --output `"$resultsDir\counters.csv`" --providers System.Runtime,Microsoft.AspNetCore.Hosting" `
+    -PassThru `
+    -WindowStyle Hidden `
+    -RedirectStandardOutput "$resultsDir\counters-log.txt" `
+    -RedirectStandardError "$resultsDir\counters-error.txt"
+
+Write-Host "Counters saving to: $countersFile" -ForegroundColor Gray
 
 # -----------------------------
 # Run NBomber
