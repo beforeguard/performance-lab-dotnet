@@ -85,18 +85,60 @@ return _repo.GetAll()                    // 10k User entities (singleton, cached
 
 ---
 
-## Planned Experiments
+## Completed Experiments
 
-### Experiment 003: Response Caching
-**Hypothesis:** Caching eliminates repeated DTO allocation and serialization for identical requests
+### Experiment 003: Response Caching ✅
 
-**Variables:**
-- Control: No caching (baseline)
-- Treatment: Output caching with 60s TTL
+**Date:** 2026-07-19  
+**Hypothesis:** Output caching eliminates repeated DTO allocation and serialization, reducing GC pressure  
+**Status:** COMPLETE - Primary goal achieved, trade-offs identified
 
 **Implementation:**
-- Add `builder.Services.AddOutputCache()` in Program.cs
-- Apply `[OutputCache(Duration = 60)]` to UsersController
+- Added OutputCache middleware with 60s TTL
+- Applied `[OutputCache(PolicyName = "UsersCachePolicy")]` to UsersController
+- Implemented cache warm-up on application start
+- Created CacheLoggingMiddleware for observability
+
+**Results:**
+| Metric | Baseline | With Cache | Change |
+|--------|----------|------------|--------|
+| Mean Latency | 2.88ms | 3.72ms | +29% ⚠️ |
+| p50 Latency | 2.26ms | 1.94ms | -14% ✅ |
+| p95 Latency | 3.36ms | 16.19ms | +382% ⚠️ |
+| p99 Latency | 7.42ms | 16.96ms | +129% ⚠️ |
+| Cache Hit Ratio | N/A | 99.98% | N/A |
+| Gen 0 Collections | 100+ | 1 | -99% ✅ |
+| Allocation Rate | 200+ MB/s | 40 KB/s | -99.98% ✅ |
+
+**Key Findings:**
+- ✅ **Primary Goal Achieved:** Eliminated GC pressure (99% reduction in collections)
+- ✅ **Cache Effectiveness:** 99.98% hit rate (8,773 hits / 2 misses)
+- ✅ **Median Improvement:** p50 latency improved by 14%
+- ⚠️ **Tail Latency Degradation:** p95/p99 significantly worse due to cache coordination overhead
+- 📊 **Slow Request Distribution:** Only 0.33% of requests (29/8,775) experienced 6-24ms latency
+
+**Trade-off Analysis:**
+- **Accept cache if:** GC elimination is critical, median latency matters more than tail latency
+- **Reject cache if:** Strict p95/p99 SLAs (<10ms), deterministic performance required
+
+**Recommendation:** ✅ Keep caching for GC benefits. For tail latency optimization, explore object pooling or streaming alternatives.
+
+**Documentation:** [experiment-003.md](experiment-003.md)
+
+---
+
+## Planned Experiments
+
+### Experiment 004: Object Pooling (Future)
+**Hypothesis:** Using ArrayPool<UserDto> reduces allocations without cache coordination overhead
+
+**Goal:** Achieve GC reduction benefits while maintaining or improving p95/p99 latency
+
+### Experiment 005: Response Streaming (Future)
+**Hypothesis:** Streaming DTOs instead of materializing avoids large allocations
+
+### Experiment 006: Response Compression (Future)
+**Hypothesis:** Gzip/Brotli compression reduces network transfer time
 
 **Expected Results:**
 - Cache hit ratio: >95% at 50 RPS

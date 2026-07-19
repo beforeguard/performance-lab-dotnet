@@ -25,11 +25,17 @@ public class CacheLoggingMiddleware
         var isCacheHit = context.Response.Headers.TryGetValue("Age", out var ageValue);
         var cacheStatus = isCacheHit ? "HIT" : "MISS";
         var cacheAge = isCacheHit ? ageValue.ToString() : "N/A";
+        
+        // Log query string if present
+        var queryString = context.Request.QueryString.HasValue 
+            ? context.Request.QueryString.Value 
+            : "(none)";
 
         _logger.LogInformation(
-            "Request: {Method} {Path} | Cache: {Status} | Latency: {Latency}ms | Age: {Age}s",
+            "Request: {Method} {Path} | Query: {Query} | Cache: {Status} | Latency: {Latency}ms | Age: {Age}s",
             context.Request.Method,
             context.Request.Path,
+            queryString,
             cacheStatus,
             sw.ElapsedMilliseconds,
             cacheAge);
