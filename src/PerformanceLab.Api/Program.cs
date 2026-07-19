@@ -12,6 +12,8 @@ builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddOutputCache();
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -21,6 +23,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseOutputCache();
 
 app.MapControllers();
 
