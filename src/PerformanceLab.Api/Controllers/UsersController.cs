@@ -16,7 +16,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    [OutputCache(Duration = 60)]
+    [OutputCache(PolicyName = "UsersCachePolicy")]
     public IActionResult GetUsers()
     {
         return Ok(_userService.GetUsers());
