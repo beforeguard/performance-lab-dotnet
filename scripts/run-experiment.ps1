@@ -34,7 +34,9 @@ Write-Host "Starting API..." -ForegroundColor Cyan
 $apiProcess = Start-Process `
     dotnet `
     -ArgumentList "run --project src/PerformanceLab.Api -c Release --urls http://localhost:$Port" `
-    -PassThru
+    -PassThru `
+    -RedirectStandardOutput "$resultsDir\api.log" `
+    -RedirectStandardError "$resultsDir\api-errors.log"
 
 Start-Sleep -Seconds 3
 
@@ -105,6 +107,10 @@ Write-Host "Stopping dotnet-counters..." -ForegroundColor Cyan
 Stop-Process -Id $counterProcess.Id -Force
 
 Write-Host "Stopping API..." -ForegroundColor Cyan
-Stop-Process -Id $apiProcess.Id -Force
+$apiProcess.CloseMainWindow()
+$apiProcess.WaitForExit(5000)  # Wait 5 seconds for graceful exit
+if (!$apiProcess.HasExited) {
+    Stop-Process -Id $apiProcess.Id -Force
+}
 
 Write-Host "Done." -ForegroundColor Green

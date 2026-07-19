@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using PerformanceLab.Application.Users;
 
 namespace PerformanceLab.Api.Controllers;
@@ -15,6 +16,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
+    [OutputCache(PolicyName = "UsersCachePolicy")]
     public IActionResult GetUsers()
     {
         return Ok(_userService.GetUsers());
