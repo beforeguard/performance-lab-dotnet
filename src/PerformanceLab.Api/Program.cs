@@ -1,9 +1,15 @@
+using PerformanceLab.Api.Configuration;
 using PerformanceLab.Api.Middleware;
 using PerformanceLab.Application.Users;
 using PerformanceLab.Application.Users.Abstractions;
 using PerformanceLab.Infrastructure.Users;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Bind configuration
+var perfFeatures = builder.Configuration
+    .GetSection("PerformanceFeatures")
+    .Get<PerformanceFeatures>() ?? new PerformanceFeatures();
 
 builder.Services.AddControllers();
 
@@ -13,13 +19,17 @@ builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddOutputCache(options =>
+// Conditionally add output caching
+if (perfFeatures.EnableOutputCaching)
 {
-    options.AddPolicy("UsersCachePolicy", builder => 
-        builder.Expire(TimeSpan.FromSeconds(60))
-               .Tag("users")
-               .SetLocking(true)); 
-});
+    builder.Services.AddOutputCache(options =>
+    {
+        options.AddPolicy("UsersCachePolicy", builder => 
+            builder.Expire(TimeSpan.FromSeconds(perfFeatures.CacheDurationSeconds))
+                   .Tag("users")
+                   .SetLocking(true)); 
+    });
+}
 
 var app = builder.Build();
 
@@ -31,29 +41,35 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseCacheLogging();
-
-app.UseOutputCache();
+// Conditionally use cache middleware
+if (perfFeatures.EnableOutputCaching)
+{
+    app.UseCacheLogging();
+    app.UseOutputCache();
+}
 
 app.MapControllers();
 
-// Warm up cache after app starts
-app.Lifetime.ApplicationStarted.Register(async () =>
+// Conditional cache warm-up
+if (perfFeatures.EnableOutputCaching)
 {
-    try
+    app.Lifetime.ApplicationStarted.Register(async () =>
     {
-        await Task.Delay(500); // Give the server time to fully start
-        using var client = new HttpClient { BaseAddress = new Uri("http://localhost:5206") };
-        var response = await client.GetAsync("/users");
-        if (response.IsSuccessStatusCode)
+        try
         {
-            Console.WriteLine("✅ Cache warmed up successfully");
+            await Task.Delay(500); // Give the server time to fully start
+            using var client = new HttpClient { BaseAddress = new Uri("http://localhost:5206") };
+            var response = await client.GetAsync("/users");
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("✅ Cache warmed up successfully");
+            }
         }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"⚠️ Cache warm-up failed: {ex.Message}");
-    }
-});
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Cache warm-up failed: {ex.Message}");
+        }
+    });
+}
 
 app.Run();
