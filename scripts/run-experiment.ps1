@@ -34,6 +34,7 @@ Write-Host "Starting API..." -ForegroundColor Cyan
 $apiProcess = Start-Process `
     dotnet `
     -ArgumentList "run --project src/PerformanceLab.Api -c Release --urls http://localhost:$Port" `
+    -WindowStyle Hidden `
     -PassThru `
     -RedirectStandardOutput "$resultsDir\api.log" `
     -RedirectStandardError "$resultsDir\api-errors.log"
