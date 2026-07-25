@@ -30,6 +30,7 @@ public class UsersController : ControllerBase
         Response.Headers["X-Caching-Enabled"] = _perfFeatures.EnableOutputCaching.ToString();
         Response.Headers["X-Pooling-Enabled"] = _perfFeatures.EnableObjectPooling.ToString();
         
-        return Ok(_userService.GetUsers());
+        using var users = _userService.GetUsers();
+        return Ok(users);
     }
 }
