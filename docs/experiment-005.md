@@ -401,6 +401,196 @@ Add `-Stream` switch to `run-experiment.ps1` to enable testing all 8 configurati
 4. ✅ **Future automation** - Enables `-Stream` switch in `run-experiment.ps1`
 
 **Implementation approach:**
+- Service layer returns `IEnumerable<UserDto>` always
+- Conditional `.ToList()` materialization based on flag
+- Allows clean A/B testing with identical code paths
+
+---
+
+## Results
+
+**Date:** 2026-07-26  
+**Status:** ✅ COMPLETE - Partial hypothesis validation, production decision: reject streaming
+
+### Test Configuration
+
+**Complete 8-Configuration Matrix:**
+- All combinations tested: Cache × Pool × Stream (2³ = 8 configs)
+- Load: 50 RPS sustained for 60 seconds (3,000 requests per test)
+- TTFB middleware: Custom `TtfbMiddleware.cs` using `Response.OnStarting()` callback
+- Memory tracking: dotnet-counters `gc.last_collection.memory.committed_size` metric
+
+### Performance Results
+
+#### TTFB Analysis (Primary Goal: -40%)
+
+| Configuration | TTFB Mean | TTFB p95 | vs Non-Streaming | Result |
+|---------------|----------:|---------:|-----------------:|:------:|
+| **baseline** | 0.97ms | 2.38ms | - | - |
+| **baseline_stream** | **0.42ms** | **0.62ms** | **-57% / -74%** | ✅ |
+| **pool** | 1.81ms | 3.64ms | - | - |
+| **pool_stream** | **1.14ms** | **1.50ms** | **-37% / -59%** | ✅ |
+| **cache** | 0.10ms | 0.14ms | - | - |
+| **cache_stream** | 0.10ms | 0.15ms | +0% / +7% | ⚠️ |
+| **combined** | 0.10ms | 0.15ms | - | - |
+| **combined_stream** | 0.10ms | 0.15ms | +0% / +0% | ⚠️ |
+
+**Key Finding:** Streaming achieves **-57% TTFB reduction** without caching (exceeds -40% target), but provides **no benefit** when caching is enabled (already 0.10ms).
+
+#### Total Latency Impact (Acceptable: ≤+10%)
+
+| Configuration | p50 | p95 | vs Non-Streaming | Result |
+|---------------|----:|----:|-----------------:|:------:|
+| **baseline** | 3.73ms | 8.00ms | - | - |
+| **baseline_stream** | 4.39ms | 11.02ms | **+18% / +38%** | ❌ |
+| **pool** | 3.74ms | 8.81ms | - | - |
+| **pool_stream** | 4.20ms | 12.11ms | **+12% / +37%** | ❌ |
+| **cache** | 1.55ms | 2.57ms | - | - |
+| **cache_stream** | 1.59ms | 2.57ms | +3% / +0% | ✅ |
+| **combined** | 1.52ms | 2.64ms | - | - |
+| **combined_stream** | 1.87ms | 15.91ms | **+23% / +503%** | ❌ |
+
+**Key Finding:** Streaming causes significant latency degradation (+12-38% p50/p95) without caching, catastrophic degradation with combined optimization (+503% p95). Only acceptable with cache-only configuration.
+
+#### Memory Footprint (Goal: -30%)
+
+| Configuration | Committed Memory | vs Non-Streaming | Result |
+|---------------|------------------:|-----------------:|:------:|
+| **pool** | 66,662,400 B (63.6 MB) | - | - |
+| **pool_stream** | 68,153,344 B (65.0 MB) | **+2.2%** | ❌ |
+| **combined** | 66,887,680 B (63.8 MB) | - | - |
+| **combined_stream** | 67,186,688 B (64.1 MB) | **+0.4%** | ❌ |
+
+**Key Finding:** Memory **increased** by 2-3%, contradicting the -30% reduction hypothesis. Streaming does not reduce peak memory footprint in this implementation.
+
+### Hypothesis Validation
+
+| Hypothesis | Expected | Actual | Result |
+|------------|----------|--------|:------:|
+| **TTFB Reduction** | -40% | **-57% (baseline), -37% (pool)** | ✅ VALIDATED (without cache) |
+| **Memory Reduction** | -30% | **+2-3%** | ❌ REJECTED (increased) |
+| **Latency Impact** | 0% to +5% | **+12% to +503%** | ❌ REJECTED (severe degradation) |
+| **Cache Compatibility** | N/A | **No TTFB benefit, catastrophic p95 with combined** | ⚠️ INCOMPATIBLE |
+
+### Analysis
+
+#### Why TTFB Improved (Without Caching)
+- Serializer begins writing JSON immediately upon enumeration
+- No blocking wait for `.ToList()` materialization
+- First bytes sent before full collection processed
+- Effect most visible at baseline (-57%) and with pooling (-37%)
+
+#### Why Memory Increased (Not Decreased)
+**Incorrect Hypothesis:** Expected that removing `List<UserDto>` allocation would reduce memory footprint.
+
+**Actual Behavior:**
+- List<T> materialization is transient (ephemeral Gen 0 allocation)
+- ArrayPool already handles DTO allocations
+- Streaming adds serializer overhead (buffering, state machine)
+- Peak memory measured AFTER serialization completes
+- Streaming's incremental enumeration extends allocation lifetime
+
+**Conclusion:** Memory reduction hypothesis assumed List<T> was the primary footprint contributor. ArrayPool + streaming combination actually increases memory slightly due to extended allocation lifetime.
+
+#### Why Latency Degraded
+**Without Caching:**
+- Streaming overhead: state machine, incremental enumeration, smaller write buffers
+- p50 degradation: +12-18% across configurations
+- p95 degradation: +37-38% (tail latency more sensitive to overhead)
+
+**With Combined (Cache+Pool+Stream):**
+- Catastrophic +503% p95 degradation (2.64ms → 15.91ms)
+- Root cause: Cache coordination + streaming serializer overhead
+- Streaming's incremental writes conflict with cache buffering strategy
+- Same issue observed in Experiment 003 (caching alone had +382% p95)
+
+**Conclusion:** Streaming serialization overhead outweighs TTFB benefits when measuring total request time. Trade-off only acceptable if TTFB is critical metric.
+
+#### Cache Interaction
+- **TTFB:** No benefit when caching enabled (already 0.10ms from memory)
+- **Latency:** Combined config shows worst results (+503% p95)
+- **Conclusion:** Streaming provides zero value when response is cached
+
+### Success Criteria Evaluation
+
+| Criterion | Target | Actual | Pass |
+|-----------|--------|--------|:----:|
+| TTFB reduction | ≥30% | 57% (baseline), 37% (pool) | ✅ |
+| Memory reduction | ≥20% | **+2-3%** | ❌ |
+| Latency increase | ≤10% | **+12% to +503%** | ❌ |
+| Success rate | 100% | 100% | ✅ |
+
+**Overall:** ❌ **FAIL** - Memory and latency criteria not met
+
+### Recommendations
+
+#### Production Decision: ❌ REJECT STREAMING
+
+**Rationale:**
+1. ❌ **Memory hypothesis invalidated** - No reduction, slight increase observed
+2. ❌ **Unacceptable latency penalty** - +12-503% degradation across configs
+3. ⚠️ **TTFB improvement limited** - Only valuable without caching
+4. ✅ **Current optimization superior** - Combined (004b) delivers 1.52ms p50, 2.64ms p95
+
+**When Streaming MIGHT Be Valuable:**
+- Large result sets (>100K items) where List<T> allocation is significant
+- Network-bound scenarios where TTFB matters more than total latency
+- Real-time/progressive rendering use cases
+- Scenarios where caching is not feasible
+
+**For This Project:**
+- Dataset: 10,000 items (not large enough for streaming benefits)
+- Optimization: ArrayPool + OutputCache already optimal (004b)
+- Metric priority: Total latency > TTFB
+- **Conclusion:** Streaming adds complexity without measurable benefit
+
+#### Keep Existing Production Config (Experiment 004b)
+- `EnableOutputCaching: true`
+- `EnableObjectPooling: true`
+- `EnableStreaming: false` ← Explicitly disable
+
+**Results from 004b (confirmed superior):**
+- Mean latency: 1.61ms (-58.9% vs baseline)
+- p95 latency: 2.50ms (-62.2% vs baseline)
+- p99 latency: 5.21ms (-65.7% vs baseline)
+- Cache hit ratio: ~99.98%
+
+### Implementation Notes
+
+**What Was Built:**
+1. ✅ `TtfbMiddleware.cs` - Response.OnStarting() for TTFB measurement
+2. ✅ `EnableStreaming` flag - Added to PerformanceFeatures configuration
+3. ✅ Service layer refactor - Returns IEnumerable<UserDto>, conditional materialization
+4. ✅ Controller disposal pattern - Response.OnCompleted() for PooledUserDtoCollection
+5. ✅ NBomber TTFB tracking - TtfbTracker.cs with percentile reporting
+6. ✅ run-experiment.ps1 enhancement - `-Stream` switch, 8-config `-All` matrix
+
+**Artifacts:**
+- Code: Fully implemented and tested
+- Results: 8 complete test runs in `results/2026-07-26_*` folders
+- Documentation: This experiment report
+
+### Lessons Learned
+
+1. **Peak memory ≠ allocation pressure** - Transient vs sustained allocations behave differently
+2. **TTFB optimization != total latency optimization** - Different metrics, different trade-offs
+3. **Caching dominates streaming** - Cache hit (0.10ms TTFB) makes streaming irrelevant
+4. **ArrayPool already optimal** - Further allocation optimization provides diminishing returns
+5. **Measure assumptions** - "Obvious" memory savings require validation, not assumption
+
+### Future Work
+
+**Scenarios Where Streaming Might Win:**
+- Test with 100K+ item collections
+- Implement true `IAsyncEnumerable<T>` with async I/O
+- Network latency simulation (TTFB matters more over WAN)
+- Progressive rendering client (consumes partial responses)
+
+**Not Recommended for This Project:**
+- Dataset too small (10K items)
+- Caching already optimal
+- TTFB not critical metric
+- Complexity not justified by results
 - Always return `IEnumerable<UserDto>` from UserService
 - Conditionally call `.ToList()` when `EnableStreaming: false`
 - Minimal overhead (~microseconds) for materialization when disabled
