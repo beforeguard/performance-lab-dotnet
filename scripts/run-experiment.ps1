@@ -79,16 +79,14 @@ foreach ($config in $configurations) {
     Write-Host ""
     
     # -----------------------------
-    # Update appsettings.json
+    # Set environment variables for configuration override
     # -----------------------------
-    Write-Host "Updating appsettings.json..." -ForegroundColor Cyan
-    $appsettingsPath = Join-Path $RepoRoot "src\PerformanceLab.Api\appsettings.json"
-    $json = Get-Content $appsettingsPath | ConvertFrom-Json
-    $json.PerformanceFeatures.EnableOutputCaching = $config.Cache
-    $json.PerformanceFeatures.EnableObjectPooling = $config.Pool
-    $json | ConvertTo-Json -Depth 10 | Set-Content $appsettingsPath
+    Write-Host "Setting configuration via environment variables..." -ForegroundColor Cyan
+    $env:PerformanceFeatures__EnableOutputCaching = $config.Cache.ToString().ToLower()
+    $env:PerformanceFeatures__EnableObjectPooling = $config.Pool.ToString().ToLower()
     
-    Write-Host "  Cache: $($config.Cache), Pool: $($config.Pool)" -ForegroundColor Gray
+    Write-Host "  PerformanceFeatures__EnableOutputCaching=$($env:PerformanceFeatures__EnableOutputCaching)" -ForegroundColor Gray
+    Write-Host "  PerformanceFeatures__EnableObjectPooling=$($env:PerformanceFeatures__EnableObjectPooling)" -ForegroundColor Gray
     
     # -----------------------------
     # Create result folder
@@ -203,6 +201,12 @@ Compare against previous experiment folders in /results
     if (!$apiProcess.HasExited) {
         Stop-Process -Id $apiProcess.Id -Force
     }
+    
+    # -----------------------------
+    # Clean up environment variables
+    # -----------------------------
+    Remove-Item Env:\PerformanceFeatures__EnableOutputCaching -ErrorAction SilentlyContinue
+    Remove-Item Env:\PerformanceFeatures__EnableObjectPooling -ErrorAction SilentlyContinue
     
     Write-Host "Configuration '$($config.Name)' complete!" -ForegroundColor Green
     

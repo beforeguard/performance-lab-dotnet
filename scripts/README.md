@@ -46,13 +46,13 @@ Automated performance testing script for running load tests with different optim
 
 For each configuration:
 
-1. **Updates `appsettings.json`** - Sets `EnableOutputCaching` and `EnableObjectPooling` based on flags
+1. **Sets environment variables** - Overrides `PerformanceFeatures__EnableOutputCaching` and `PerformanceFeatures__EnableObjectPooling` (no file modification!)
 2. **Builds API** - Compiles in Release mode
-3. **Starts API** - Runs on specified port
+3. **Starts API** - Runs on specified port with configuration from environment variables
 4. **Starts dotnet-counters** - Collects GC and allocation metrics
 5. **Runs NBomber** - Executes load test scenarios
 6. **Saves results** - Creates timestamped folder with configuration name
-7. **Cleans up** - Stops API and counters
+7. **Cleans up** - Stops API, counters, and removes environment variables
 
 ### Results
 
@@ -105,3 +105,22 @@ This will:
 - Review `nbomber.txt` for latency metrics
 - Review `counters.csv` for GC/allocation metrics
 - Results folder name includes configuration for easy identification
+
+### Configuration Method
+
+The script uses **environment variables** to override configuration without modifying `appsettings.json`:
+
+```
+PerformanceFeatures__EnableOutputCaching=true
+PerformanceFeatures__EnableObjectPooling=false
+```
+
+**Benefits:**
+- ✅ No file modification (cleaner git status)
+- ✅ No risk of leaving config in modified state
+- ✅ Follows 12-factor app principles
+- ✅ Same approach works in CI/CD pipelines
+- ✅ Automatic cleanup after each test run
+
+**How it works:**  
+.NET's configuration system reads environment variables with double-underscore (`__`) separators to override JSON settings. The script sets these before launching the API, then removes them after the test completes.
