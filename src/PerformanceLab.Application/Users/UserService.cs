@@ -1,3 +1,4 @@
+using System.Buffers;
 using PerformanceLab.Application.Users.Abstractions;
 using PerformanceLab.Application.Users.Models;
 
@@ -12,14 +13,26 @@ public class UserService
         _repo = repo;
     }
 
-    public List<UserDto> GetUsers()
+    public PooledUserDtoCollection GetUsers()
     {
-        return _repo.GetAll()
-            .Select(u => new UserDto
+        var users = _repo.GetAll();
+        var count = users.Count;
+        
+        // Rent array from pool
+        var dtoArray = ArrayPool<UserDto>.Shared.Rent(count);
+        
+        // Populate DTOs
+        for (int i = 0; i < count; i++)
+        {
+            var user = users[i];
+            dtoArray[i] = new UserDto
             {
-                Id = u.Id,
-                Name = u.Name
-            })
-            .ToList();
+                Id = user.Id,
+                Name = user.Name
+            };
+        }
+        
+        // Wrap in disposable collection
+        return new PooledUserDtoCollection(dtoArray, count);
     }
 }
