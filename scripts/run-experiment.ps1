@@ -23,18 +23,29 @@ Set-Location $RepoRoot
 $configurations = @()
 
 if ($All) {
-    # Run all 4 configurations
+    # Run all 8 configurations (4 without streaming + 4 with streaming)
     $configurations = @(
         @{Cache=$false; Pool=$false; Stream=$false; Name="baseline"},
+        @{Cache=$false; Pool=$false; Stream=$true;  Name="baseline_stream"},
         @{Cache=$false; Pool=$true;  Stream=$false; Name="pool"},
+        @{Cache=$false; Pool=$true;  Stream=$true;  Name="pool_stream"},
         @{Cache=$true;  Pool=$false; Stream=$false; Name="cache"},
-        @{Cache=$true;  Pool=$true;  Stream=$false; Name="combined"}
+        @{Cache=$true;  Pool=$false; Stream=$true;  Name="cache_stream"},
+        @{Cache=$true;  Pool=$true;  Stream=$false; Name="combined"},
+        @{Cache=$true;  Pool=$true;  Stream=$true;  Name="combined_stream"}
     )
-    Write-Host "Running ALL configurations (4 total)" -ForegroundColor Yellow
-    Write-Host "  1. Baseline (no optimizations)" -ForegroundColor Gray
-    Write-Host "  2. ArrayPool only" -ForegroundColor Gray
-    Write-Host "  3. OutputCache only" -ForegroundColor Gray
-    Write-Host "  4. Combined (ArrayPool + Cache)" -ForegroundColor Gray
+    
+    Write-Host "Running ALL configurations (8 total - complete matrix)" -ForegroundColor Yellow
+    Write-Host "  Without Streaming:" -ForegroundColor Cyan
+    Write-Host "    1. Baseline (no optimizations)" -ForegroundColor Gray
+    Write-Host "    2. ArrayPool only" -ForegroundColor Gray
+    Write-Host "    3. OutputCache only" -ForegroundColor Gray
+    Write-Host "    4. Combined (ArrayPool + Cache)" -ForegroundColor Gray
+    Write-Host "  With Streaming:" -ForegroundColor Cyan
+    Write-Host "    5. Baseline + Streaming" -ForegroundColor Gray
+    Write-Host "    6. ArrayPool + Streaming" -ForegroundColor Gray
+    Write-Host "    7. OutputCache + Streaming" -ForegroundColor Gray
+    Write-Host "    8. Combined + Streaming (ArrayPool + Cache + Streaming)" -ForegroundColor Gray
     Write-Host ""
 } else {
     # Run single configuration based on flags

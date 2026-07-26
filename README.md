@@ -87,7 +87,7 @@ The automated experiment runner handles API startup, performance monitoring, loa
 # All optimizations
 .\scripts\run-experiment.ps1 -Cache -Pool -Stream
 
-# Run all 4 baseline configurations
+# Run all 8 configurations (complete matrix: Cache × Pool × Stream)
 .\scripts\run-experiment.ps1 -All
 ```
 
