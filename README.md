@@ -2,60 +2,213 @@
 
 An ASP.NET Core performance and profiling lab for measuring runtime behavior, GC activity, allocation pressure, and throughput under controlled load.
 
+## Overview
+
+This project demonstrates systematic performance optimization through controlled experiments on a .NET 10 API. Each optimization is implemented as a toggleable feature, measured independently, and documented with before/after metrics.
+
 ## Current State
 
 The solution is structured as a small layered .NET 10 app:
 
-- `src/PerformanceLab.Api` hosts the HTTP API and Swagger in Development.
-- `src/PerformanceLab.Application` contains the user service and DTO mapping.
-- `src/PerformanceLab.Domain` contains the core `User` entity.
-- `src/PerformanceLab.Infrastructure` provides the in-memory user repository.
-- `src/PerformanceLab.Shared` is currently available for shared types and utilities.
-- `tools/PerformanceLab.LoadTests` contains the NBomber load test harness.
+- `src/PerformanceLab.Api` - HTTP API with Swagger, middleware, and controllers
+- `src/PerformanceLab.Application` - User service, DTO mapping, and business logic
+- `src/PerformanceLab.Domain` - Core `User` entity
+- `src/PerformanceLab.Infrastructure` - In-memory user repository
+- `src/PerformanceLab.Shared` - Shared configuration (`PerformanceFeatures`)
+- `tools/PerformanceLab.LoadTests` - NBomber load test harness with TTFB tracking
 
-The API currently exposes a single endpoint:
+**Endpoint:**
+- `GET /users` - Returns 10,000 in-memory users as `UserDto` (Id + Name)
 
-- `GET /users` returns 10,000 in-memory users projected to `Id` and `Name`.
+**Performance Features** (toggleable via `appsettings.json`):
+- **EnableObjectPooling** - ArrayPool-based DTO allocation (`PooledUserDtoCollection`)
+- **EnableOutputCaching** - ASP.NET Core output caching with 60s TTL
+- **EnableStreaming** - IEnumerable streaming serialization (reduces TTFB)
 
 ## Project Layout
 
-- `PerformanceLab.slnx` - solution file
-- `dotnet-tools.json` - local tool manifest for `dotnet-counters` and `dotnet-trace`
-- `docs/baseline-v1.md` - initial steady-state baseline for `GET /users`
-- `reports/` - load-test outputs and captured reports
+```
+├── PerformanceLab.slnx          # Solution file
+├── dotnet-tools.json            # dotnet-counters, dotnet-trace
+├── docs/
+│   ├── experiment-001.md        # Baseline measurement
+│   ├── experiment-002.md        # ArrayPool optimization
+│   ├── experiment-003.md        # OutputCache optimization
+│   ├── experiment-004.md        # Combined optimizations
+│   ├── experiment-005.md        # Response streaming (TTFB)
+│   └── performance-experiments-tracking.md
+├── results/                     # Experiment outputs (gitignored)
+├── reports/                     # NBomber HTML reports (gitignored)
+├── scripts/
+│   └── run-experiment.ps1       # Automated experiment runner
+└── src/                         # Application code
+```
 
 ## Running The API
 
-The API project targets `net10.0` and uses the standard development ports from `launchSettings.json`:
+The API targets `net10.0` and uses standard development ports:
 
 - HTTP: `http://localhost:5206`
 - HTTPS: `https://localhost:7262`
 
-Swagger is enabled in Development.
-
+**Development mode:**
 ```powershell
-dotnet run --project src/PerformanceLab.Api/PerformanceLab.Api.csproj
+dotnet run --project src/PerformanceLab.Api
 ```
 
-## Running The Load Test
-
-The load-test project uses NBomber and targets the local API at `http://localhost:5206/users`.
-
+**Release mode (for experiments):**
 ```powershell
-dotnet run --project tools/PerformanceLab.LoadTests/PerformanceLab.LoadTests.csproj
+dotnet run --project src/PerformanceLab.Api -c Release --urls http://localhost:5206
 ```
 
-The baseline scenario currently runs at 50 requests per second for 1 minute.
+Swagger is available at `http://localhost:5206/swagger` in Development.
+
+## Running Experiments
+
+The automated experiment runner handles API startup, performance monitoring, load testing, and cleanup.
+
+**Basic usage:**
+```powershell
+# Baseline (no optimizations)
+.\scripts\run-experiment.ps1
+
+# ArrayPool only
+.\scripts\run-experiment.ps1 -Pool
+
+# OutputCache only
+.\scripts\run-experiment.ps1 -Cache
+
+# Combined (ArrayPool + Cache)
+.\scripts\run-experiment.ps1 -Cache -Pool
+
+# Streaming (ArrayPool + Streaming)
+.\scripts\run-experiment.ps1 -Pool -Stream
+
+# All optimizations
+.\scripts\run-experiment.ps1 -Cache -Pool -Stream
+
+# Run all 4 baseline configurations
+.\scripts\run-experiment.ps1 -All
+```
+
+**What it does:**
+1. Builds API in Release mode
+2. Starts API with specified feature flags (via environment variables)
+3. Starts `dotnet-counters` for GC/memory metrics
+4. Runs NBomber load tests (baseline + capacity curve scenarios)
+5. Generates TTFB report and experiment summary
+6. Saves results to timestamped folder in `results/`
+7. Cleans up processes
+
+**Results location:**
+- `results/{timestamp}_{config}/experiment.md` - Configuration and summary
+- `results/{timestamp}_{config}/nbomber.txt` - Latency metrics
+- `results/{timestamp}_{config}/counters.csv` - GC and allocation data
+- `reports/ttfb_report_{timestamp}.md` - Time-to-first-byte analysis
+
+## Manual Load Testing
+
+If running tests manually without the script:
+
+```powershell
+# Start API first
+dotnet run --project src/PerformanceLab.Api -c Release --urls http://localhost:5206
+
+# In another terminal
+dotnet run --project tools/PerformanceLab.LoadTests -c Release
+```
+
+## Configuration
+
+Performance features are controlled via `appsettings.json` or environment variables:
+
+**appsettings.json:**
+```json
+{
+  "PerformanceFeatures": {
+    "EnableOutputCaching": true,
+    "EnableObjectPooling": true,
+    "EnableStreaming": false,
+    "CacheDurationSeconds": 60
+  }
+}
+```
+
+**Environment variables (used by run-experiment.ps1):**
+```powershell
+$env:PerformanceFeatures__EnableOutputCaching = "true"
+$env:PerformanceFeatures__EnableObjectPooling = "true"
+$env:PerformanceFeatures__EnableStreaming = "false"
+```
+
+**Response headers** indicate active features:
+- `X-Caching-Enabled: True/False`
+- `X-Pooling-Enabled: True/False`
+- `X-Streaming-Enabled: True/False`
+- `X-TTFB-Ms: {milliseconds}` - Time to first byte
 
 ## Diagnostics
 
 The repo includes local tool definitions for:
 
-- `dotnet-counters`
-- `dotnet-trace`
+- **dotnet-counters** - Real-time GC, heap size, and allocation metrics
+- **dotnet-trace** - Detailed runtime event traces
 
-These are used alongside the load tests to inspect GC and runtime behavior while the endpoint is under pressure.
+**Monitoring during manual tests:**
+```powershell
+# Monitor GC and allocations (replace PID)
+dotnet counters monitor --process-id {PID} --counters System.Runtime,Microsoft.AspNetCore.Hosting
 
-## Baseline Notes
+# Capture trace
+dotnet trace collect --process-id {PID} --providers Microsoft-DotNETCore-SampleProfiler
+```
 
-The initial performance baseline for the current implementation is documented in `docs/baseline-v1.md`.
+## Completed Experiments
+
+| Experiment | Description | Key Result | Status |
+|------------|-------------|------------|--------|
+| 001 | Baseline measurement | 5.44ms p50, 9.45ms p95 | ✅ Complete |
+| 002 | ArrayPool optimization | 2.79ms p50 (-49%), 5.01ms p95 (-47%) | ✅ Complete |
+| 003 | OutputCache optimization | Variable (coordination overhead) | ✅ Complete |
+| 004 | Combined (Pool + Cache) | 1.61ms p50 (-70%), 2.50ms p95 (-74%) | ✅ Complete |
+| 005 | Response streaming | TTFB reduction target: -40% | 🚧 In Progress |
+
+**Best configuration (Experiment 004):**
+- ArrayPool + OutputCache
+- **p50 latency:** 1.61ms (70% improvement)
+- **p95 latency:** 2.50ms (74% improvement)
+- **Success rate:** 100%
+
+See `docs/performance-experiments-tracking.md` for detailed tracking.
+
+## Metrics Captured
+
+**Latency (NBomber):**
+- p50, p75, p95, p99 request latency
+- RPS (requests per second)
+- Success rate
+
+**Memory (dotnet-counters):**
+- `gc-heap-size` - Peak memory allocation
+- `alloc-rate` - Allocation rate per second
+- `gen-0-gc-count`, `gen-1-gc-count`, `gen-2-gc-count` - GC pressure
+
+**TTFB (custom tracking):**
+- Time from request received to response start
+- Critical for streaming evaluation
+
+## Next Steps
+
+- [ ] Complete Experiment 005 (streaming evaluation)
+- [ ] Experiment 006: Response compression
+- [ ] Experiment 009: Database integration (replace in-memory repo)
+
+## Documentation
+
+All experiments are documented in `docs/` with:
+- Hypothesis and success criteria
+- Implementation details
+- Before/after metrics
+- Analysis and conclusions
+
+See `docs/performance-experiments-tracking.md` for the master experiment log.
