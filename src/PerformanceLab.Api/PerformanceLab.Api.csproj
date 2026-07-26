@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PerformanceLab.Infrastructure\PerformanceLab.Infrastructure.csproj" />
+    <ProjectReference Include="..\PerformanceLab.Shared\PerformanceLab.Shared.csproj" />
   </ItemGroup>
 
 </Project>

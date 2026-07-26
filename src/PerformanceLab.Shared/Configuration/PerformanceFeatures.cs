@@ -1,8 +1,9 @@
-namespace PerformanceLab.Api.Configuration;
+namespace PerformanceLab.Shared.Configuration;
 
 public class PerformanceFeatures
 {
     public bool EnableOutputCaching { get; set; }
     public bool EnableObjectPooling { get; set; }
+    public bool EnableStreaming { get; set; }
     public int CacheDurationSeconds { get; set; } = 60;
 }

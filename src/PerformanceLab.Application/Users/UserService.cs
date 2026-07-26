@@ -1,4 +1,5 @@
 using System.Buffers;
+using PerformanceLab.Shared.Configuration;
 using PerformanceLab.Application.Users.Abstractions;
 using PerformanceLab.Application.Users.Models;
 
@@ -7,13 +8,47 @@ namespace PerformanceLab.Application.Users;
 public class UserService
 {
     private readonly IUserRepository _repo;
+    private readonly PerformanceFeatures _perfFeatures;
 
-    public UserService(IUserRepository repo)
+    public UserService(IUserRepository repo, PerformanceFeatures perfFeatures)
     {
         _repo = repo;
+        _perfFeatures = perfFeatures;
     }
 
-    public PooledUserDtoCollection GetUsers()
+    public IEnumerable<UserDto> GetUsers()
+    {
+        if (_perfFeatures.EnableObjectPooling)
+        {
+            var pooledUsers = GetUsersWithPooling();
+            
+            if (_perfFeatures.EnableStreaming)
+            {
+                // Return as-is for streaming
+                // Note: Disposal must happen after serialization completes (handled by controller or GC)
+                return pooledUsers;
+            }
+            else
+            {
+                // Materialize to list and dispose the pooled collection immediately
+                var list = pooledUsers.ToList();
+                pooledUsers.Dispose();
+                return list;
+            }
+        }
+        else
+        {
+            // LINQ approach (baseline)
+            var users = GetUsersWithLinq();
+            
+            // Conditionally materialize based on EnableStreaming flag
+            return _perfFeatures.EnableStreaming 
+                ? users 
+                : users.ToList();
+        }
+    }
+
+    private PooledUserDtoCollection GetUsersWithPooling()
     {
         var users = _repo.GetAll();
         var count = users.Count;
@@ -34,5 +69,15 @@ public class UserService
         
         // Wrap in disposable collection
         return new PooledUserDtoCollection(dtoArray, count);
+    }
+
+    private IEnumerable<UserDto> GetUsersWithLinq()
+    {
+        return _repo.GetAll()
+            .Select(u => new UserDto
+            {
+                Id = u.Id,
+                Name = u.Name
+            });
     }
 }
