@@ -15,7 +15,7 @@
 | 002: Capacity Curve | ✅ Complete | Handles 200 RPS, burst better than sustained load |
 | 003: Output Caching | ✅ Complete | 99% GC reduction, but +382% p95 latency degradation |
 | 004: ArrayPool | ✅ Complete | -48% mean, -39% p95 - Excellent tail latency |
-| **004b: Combined (Pool+Cache)** | **✅ Complete** | **-78% mean, -80% p95 - BEST RESULTS** 🏆 |
+| **004b: Combined (Pool+Cache)** | **✅ Complete** | **-58.9% mean, -62.2% p95 - BEST RESULTS** 🏆 |
 
 **Current Recommendation:** ✅ Deploy Combined optimization (Experiment 004b) to production
 
@@ -23,7 +23,7 @@
 
 ## Overview
 
-This lab enables controlled performance experimentation on a .NET 10 REST API. **Best result achieved:** Combined optimization (ArrayPool + OutputCache) delivers **1.17ms mean latency** (78% improvement) with **1.67ms p95** (80% improvement) and **99.98% cache hit ratio** while maintaining 100% success rate at scale.
+This lab enables controlled performance experimentation on a .NET 10 REST API. **Best result achieved:** Combined optimization (ArrayPool + OutputCache) delivers **1.61ms mean latency** (58.9% improvement) with **2.50ms p95** (62.2% improvement) and **~99.98% cache hit ratio** while maintaining 100% success rate at scale.
 
 ---
 
@@ -184,7 +184,7 @@ return _repo.GetAll()                    // 10k User entities (singleton, cached
 - **ArrayPool wins:** Lower tail latency, no cache coordination overhead, more predictable performance
 - **Caching wins:** Better median (p50) latency, near-zero allocations on cache hits
 
-**Recommendation:** ✅ **Accept ArrayPool for production.** Superior tail latency critical for SLAs. Consider Experiment 004b (ArrayPool + Cache combined) for best of both worlds.
+**Recommendation:** ✅ **Accept ArrayPool for production.** Modest but consistent improvements, eliminates Gen0 GC collections. Consider Experiment 004b (ArrayPool + Cache combined) for best results.
 
 **Documentation:** [experiment-004.md](experiment-004.md)
 
@@ -203,35 +203,37 @@ return _repo.GetAll()                    // 10k User entities (singleton, cached
 - Same codebase as Experiment 004, just configuration change
 
 **Results (50 RPS Baseline):**
-| Metric | Baseline (Exp 001) | ArrayPool (Exp 004) | **Combined (004b)** | vs Baseline | vs ArrayPool |
-|--------|-------------------:|--------------------:|--------------------:|:-----------:|:------------:|
-| Mean Latency | 2.88ms | 2.79ms | **1.17ms** | **-78%** 🚀 | **-58%** 🚀 |
-| p50 Latency | 2.26ms | 2.15ms | **1.03ms** | **-68%** 🚀 | **-52%** 🚀 |
-| p95 Latency | 3.36ms | 5.01ms | **1.67ms** | **-80%** 🚀 | **-67%** 🚀 |
-| p99 Latency | 7.42ms | 10.97ms | **2.11ms** | **-89%** 🚀 | **-81%** 🚀 |
-| Max Latency | 206.26ms | 177.55ms | **65.27ms** | **-82%** 🚀 | **-63%** 🚀 |
-| Std Dev | ~15ms | 6.36ms | **1.73ms** | **-91%** 🚀 | **-73%** 🚀 |
+| Metric | Baseline (2026-07-25) | ArrayPool (Exp 004) | **Combined (004b)** | vs Baseline | vs ArrayPool |
+|--------|----------------------:|--------------------:|--------------------:|:-----------:|:------------:|
+| Mean Latency | 3.92ms | 3.73ms | **1.61ms** | **-58.9%** 🚀 | **-56.8%** 🚀 |
+| p50 Latency | 2.62ms | 2.45ms | **1.38ms** | **-47.3%** 🚀 | **-43.7%** 🚀 |
+| p95 Latency | 6.62ms | 5.48ms | **2.50ms** | **-62.2%** 🚀 | **-54.4%** 🚀 |
+| p99 Latency | 15.19ms | 15.06ms | **5.21ms** | **-65.7%** 🚀 | **-65.4%** 🚀 |
+| Max Latency | 277.24ms | 168.28ms | **75.84ms** | **-72.6%** 🚀 | **-54.9%** 🚀 |
+| Std Dev | ~8ms | ~6.2ms | **2.6ms** | **-67.5%** 🚀 | **-58.1%** 🚀 |
 | Success Rate | 100% | 100% | 100% | ✅ | ✅ |
-| Cache Hit Ratio | N/A | N/A | **99.98%** | - | - |
+| Cache Hit Ratio | N/A | N/A | **~99.98%** | - | - |
 
 **Capacity Curve (10-200 RPS, 75s):**
 | Metric | Baseline | ArrayPool | **Combined** | vs Baseline | vs ArrayPool |
 |--------|----------|-----------|--------------|:-----------:|:------------:|
-| Mean Latency | 5.22ms | 2.45ms | **1.13ms** | **-70%** 🚀 | **-54%** 🚀 |
-| p95 Latency | 6.4ms | 3.28ms | **1.87ms** | **-70%** 🚀 | **-43%** 🚀 |
-| p99 Latency | 10.02ms | 11.22ms | **3.29ms** | **-69%** 🚀 | **-71%** 🚀 |
+| Mean Latency | 3.13ms | 3.06ms | **2.28ms** | **-27.2%** ✅ | **-25.5%** ✅ |
+| p95 Latency | 4.28ms | 4.15ms | **9.14ms** | +113.6% ⚠️ | +120.2% ⚠️ |
+| p99 Latency | 15.94ms | 15.92ms | **19.10ms** | +19.8% ⚠️ | +20.0% ⚠️ |
 
 **Key Findings:**
-- 🏆 **Best Results Across All Metrics** - Wins on mean, p50, p75, p95, p99, and variance
-- ✅ **Cache Performance** - 99.98% hit ratio (8,774 hits / 2 misses)
-- 🚀 **Eliminates Cache Coordination Overhead** - ArrayPool handles rare misses without tail latency spike
-- 📊 **Exceeds All Targets by 3-5x** - p95: 1.67ms (target <5ms), p99: 2.11ms (target <10ms)
-- ✅ **91% variance reduction** - Extremely predictable performance
+- 🏆 **Best Results Across Most Metrics** - Wins on mean, p50, p95, p99 under steady load (50 RPS)
+- ✅ **Cache Performance** - Expected ~99.98% hit ratio (based on cache-only test)
+- 🚀 **Mitigates Cache Miss Cost** - ArrayPool handles rare misses without excessive allocation
+- 📊 **Exceeds All Targets by 2x** - p95: 2.50ms (target <5ms), p99: 5.21ms (target <10ms)
+- ✅ **67.5% variance reduction** - More predictable performance
+- ⚠️ **Variable Load Shows Coordination Overhead** - p95 degrades under capacity curve (+114%)
 
-**Why Combined Beats Cache-Only (Exp 003):**
-- Cache-only had **+382% p95 degradation** due to coordination overhead
-- Combined has **-80% p95 improvement** because ArrayPool handles rare cache misses efficiently
-- Result: Cache hit speed + ArrayPool tail latency protection = best of both worlds
+**Why Combined Works:**
+- Cache provides excellent steady-state performance (1.61ms mean)
+- ArrayPool reduces allocation cost on cache misses
+- Best suited for steady, predictable traffic patterns
+- Variable/burst load may expose cache coordination costs
 
 **Recommendation:** ✅ **DEPLOY TO PRODUCTION.** Best results across all experiments. Enable both features in appsettings.json.
 
@@ -417,7 +419,7 @@ return _repo.GetAll()                    // 10k User entities (singleton, cached
 | 008 - Async | 🔲 Planned | — | — | — | — | — |
 | 009 - Database | 🔲 Planned | — | — | — | — | — |
 
-**Key Insight:** Experiment 004b (ArrayPool + OutputCache) achieved **best results across all metrics**. Cache provides sub-1ms median latency while ArrayPool eliminates tail latency spikes on cache misses. **Recommended for immediate production deployment.**
+**Key Insight:** Experiment 004b (ArrayPool + OutputCache) achieved **best results under steady load (50 RPS)** with -58.9% mean and -62.2% p95 improvements. Cache provides excellent steady-state performance while ArrayPool reduces cache miss costs. **Recommended for production deployment with steady traffic patterns.** Variable load may expose cache coordination overhead (p95 degradation observed in capacity curve).
 
 ---
 
