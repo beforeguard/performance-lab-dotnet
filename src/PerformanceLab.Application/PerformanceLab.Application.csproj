@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PerformanceLab.Domain\PerformanceLab.Domain.csproj" />
+    <ProjectReference Include="..\PerformanceLab.Shared\PerformanceLab.Shared.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

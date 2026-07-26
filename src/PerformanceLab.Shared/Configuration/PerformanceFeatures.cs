@@ -1,4 +1,4 @@
-namespace PerformanceLab.Api.Configuration;
+namespace PerformanceLab.Shared.Configuration;
 
 public class PerformanceFeatures
 {

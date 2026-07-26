@@ -6,4 +6,9 @@ public static class MiddlewareExtensions
     {
         return builder.UseMiddleware<CacheLoggingMiddleware>();
     }
+
+    public static IApplicationBuilder UseTtfb(this IApplicationBuilder builder)
+    {
+        return builder.UseMiddleware<TtfbMiddleware>();
+    }
 }

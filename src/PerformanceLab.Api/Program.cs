@@ -1,4 +1,4 @@
-using PerformanceLab.Api.Configuration;
+using PerformanceLab.Shared.Configuration;
 using PerformanceLab.Api.Middleware;
 using PerformanceLab.Application.Users;
 using PerformanceLab.Application.Users.Abstractions;
@@ -12,6 +12,9 @@ var perfFeatures = builder.Configuration
     .Get<PerformanceFeatures>() ?? new PerformanceFeatures();
 
 builder.Services.AddControllers();
+
+// Register PerformanceFeatures as singleton for injection
+builder.Services.AddSingleton(perfFeatures);
 
 builder.Services.AddScoped<UserService>();
 builder.Services.AddSingleton<IUserRepository, UserRepository>();
@@ -32,6 +35,9 @@ if (perfFeatures.EnableOutputCaching)
 }
 
 var app = builder.Build();
+
+// TTFB (Time to First Byte) measurement middleware
+app.UseTtfb();
 
 if (app.Environment.IsDevelopment())
 {

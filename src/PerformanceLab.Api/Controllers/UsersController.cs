@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
-using PerformanceLab.Api.Configuration;
+using PerformanceLab.Shared.Configuration;
 using PerformanceLab.Application.Users;
 
 namespace PerformanceLab.Api.Controllers;
@@ -29,8 +29,20 @@ public class UsersController : ControllerBase
         // Add headers to indicate which features are active
         Response.Headers["X-Caching-Enabled"] = _perfFeatures.EnableOutputCaching.ToString();
         Response.Headers["X-Pooling-Enabled"] = _perfFeatures.EnableObjectPooling.ToString();
+        Response.Headers["X-Streaming-Enabled"] = _perfFeatures.EnableStreaming.ToString();
         
-        using var users = _userService.GetUsers();
+        var users = _userService.GetUsers();
+        
+        // Dispose after response completes if needed (e.g., PooledUserDtoCollection when streaming)
+        if (users is IDisposable disposable)
+        {
+            Response.OnCompleted(() =>
+            {
+                disposable.Dispose();
+                return Task.CompletedTask;
+            });
+        }
+        
         return Ok(users);
     }
 }
