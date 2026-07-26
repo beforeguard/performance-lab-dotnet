@@ -3,6 +3,7 @@ param (
     
     [switch]$Cache,
     [switch]$Pool,
+    [switch]$Stream,
     [switch]$All,
     
     [int]$WarmupSeconds = 3
@@ -24,10 +25,10 @@ $configurations = @()
 if ($All) {
     # Run all 4 configurations
     $configurations = @(
-        @{Cache=$false; Pool=$false; Name="baseline"},
-        @{Cache=$false; Pool=$true;  Name="pool"},
-        @{Cache=$true;  Pool=$false; Name="cache"},
-        @{Cache=$true;  Pool=$true;  Name="combined"}
+        @{Cache=$false; Pool=$false; Stream=$false; Name="baseline"},
+        @{Cache=$false; Pool=$true;  Stream=$false; Name="pool"},
+        @{Cache=$true;  Pool=$false; Stream=$false; Name="cache"},
+        @{Cache=$true;  Pool=$true;  Stream=$false; Name="combined"}
     )
     Write-Host "Running ALL configurations (4 total)" -ForegroundColor Yellow
     Write-Host "  1. Baseline (no optimizations)" -ForegroundColor Gray
@@ -39,6 +40,7 @@ if ($All) {
     # Run single configuration based on flags
     $enableCache = $Cache.IsPresent
     $enablePool = $Pool.IsPresent
+    $enableStream = $Stream.IsPresent
     
     # Determine configuration name
     $configName = if (!$enableCache -and !$enablePool) {
@@ -51,16 +53,27 @@ if ($All) {
         "combined"
     }
     
-    $configurations = @(@{Cache=$enableCache; Pool=$enablePool; Name=$configName})
+    # Add stream suffix if enabled
+    if ($enableStream) {
+        $configName += "_stream"
+    }
+    
+    $configurations = @(@{Cache=$enableCache; Pool=$enablePool; Stream=$enableStream; Name=$configName})
     
     if ($configName -eq "baseline") {
         Write-Host "Running BASELINE configuration (no optimizations)" -ForegroundColor Yellow
     } elseif ($configName -eq "pool") {
         Write-Host "Running ARRAYPOOL configuration" -ForegroundColor Yellow
+    } elseif ($configName -eq "pool_stream") {
+        Write-Host "Running ARRAYPOOL + STREAMING configuration" -ForegroundColor Yellow
     } elseif ($configName -eq "cache") {
         Write-Host "Running CACHE configuration" -ForegroundColor Yellow
-    } else {
+    } elseif ($configName -eq "combined") {
         Write-Host "Running COMBINED configuration (ArrayPool + Cache)" -ForegroundColor Yellow
+    } elseif ($configName -eq "combined_stream") {
+        Write-Host "Running COMBINED + STREAMING configuration (ArrayPool + Cache + Streaming)" -ForegroundColor Yellow
+    } else {
+        Write-Host "Running $configName configuration" -ForegroundColor Yellow
     }
 }
 
@@ -75,6 +88,7 @@ foreach ($config in $configurations) {
     Write-Host "Configuration: $($config.Name.ToUpper())" -ForegroundColor Cyan
     Write-Host "  EnableOutputCaching: $($config.Cache)" -ForegroundColor Gray
     Write-Host "  EnableObjectPooling: $($config.Pool)" -ForegroundColor Gray
+    Write-Host "  EnableStreaming: $($config.Stream)" -ForegroundColor Gray
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
     
@@ -84,9 +98,11 @@ foreach ($config in $configurations) {
     Write-Host "Setting configuration via environment variables..." -ForegroundColor Cyan
     $env:PerformanceFeatures__EnableOutputCaching = $config.Cache.ToString().ToLower()
     $env:PerformanceFeatures__EnableObjectPooling = $config.Pool.ToString().ToLower()
+    $env:PerformanceFeatures__EnableStreaming = $config.Stream.ToString().ToLower()
     
     Write-Host "  PerformanceFeatures__EnableOutputCaching=$($env:PerformanceFeatures__EnableOutputCaching)" -ForegroundColor Gray
     Write-Host "  PerformanceFeatures__EnableObjectPooling=$($env:PerformanceFeatures__EnableObjectPooling)" -ForegroundColor Gray
+    Write-Host "  PerformanceFeatures__EnableStreaming=$($env:PerformanceFeatures__EnableStreaming)" -ForegroundColor Gray
     
     # -----------------------------
     # Create result folder
@@ -170,6 +186,7 @@ $timestamp
 - **Name:** $($config.Name)
 - **EnableOutputCaching:** $($config.Cache)
 - **EnableObjectPooling:** $($config.Pool)
+- **EnableStreaming:** $($config.Stream)
 
 ## Endpoint
 GET /users
@@ -207,6 +224,7 @@ Compare against previous experiment folders in /results
     # -----------------------------
     Remove-Item Env:\PerformanceFeatures__EnableOutputCaching -ErrorAction SilentlyContinue
     Remove-Item Env:\PerformanceFeatures__EnableObjectPooling -ErrorAction SilentlyContinue
+    Remove-Item Env:\PerformanceFeatures__EnableStreaming -ErrorAction SilentlyContinue
     
     Write-Host "Configuration '$($config.Name)' complete!" -ForegroundColor Green
     
