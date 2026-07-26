@@ -33,6 +33,9 @@ if (perfFeatures.EnableOutputCaching)
 
 var app = builder.Build();
 
+// TTFB (Time to First Byte) measurement middleware
+app.UseTtfb();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
