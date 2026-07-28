@@ -31,6 +31,29 @@ public static class UsersScenarios
                 }
             }
             
+            // Extract response size from header (if present)
+            long? responseSizeBytes = null;
+            if (response.Headers.TryGetValues("X-Response-Size-Bytes", out var sizeValues))
+            {
+                if (long.TryParse(sizeValues.FirstOrDefault(), out var size))
+                {
+                    responseSizeBytes = size;
+                }
+            }
+            
+            // Extract compression type
+            string compressionType = "none";
+            if (response.Content.Headers.ContentEncoding.Any())
+            {
+                compressionType = string.Join(", ", response.Content.Headers.ContentEncoding);
+            }
+            
+            // Track response size and compression
+            if (responseSizeBytes.HasValue)
+            {
+                ResponseSizeTracker.Record(responseSizeBytes.Value, compressionType);
+            }
+            
             // Complete reading the response body
             await response.Content.ReadAsByteArrayAsync();
 
@@ -64,6 +87,29 @@ public static class UsersScenarios
                     ttfbMs = parsed;
                     TtfbTracker.Record(parsed); // Track for analysis
                 }
+            }
+            
+            // Extract response size from header (if present)
+            long? responseSizeBytes = null;
+            if (response.Headers.TryGetValues("X-Response-Size-Bytes", out var sizeValues))
+            {
+                if (long.TryParse(sizeValues.FirstOrDefault(), out var size))
+                {
+                    responseSizeBytes = size;
+                }
+            }
+            
+            // Extract compression type
+            string compressionType = "none";
+            if (response.Content.Headers.ContentEncoding.Any())
+            {
+                compressionType = string.Join(", ", response.Content.Headers.ContentEncoding);
+            }
+            
+            // Track response size and compression
+            if (responseSizeBytes.HasValue)
+            {
+                ResponseSizeTracker.Record(responseSizeBytes.Value, compressionType);
             }
             
             // Complete reading the response body

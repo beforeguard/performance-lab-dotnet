@@ -19,5 +19,7 @@ Directory.CreateDirectory(reportDir);
 
 var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
 var ttfbReportPath = Path.Combine(reportDir, $"ttfb_report_{timestamp}.md");
+var sizeReportPath = Path.Combine(reportDir, $"response_size_report_{timestamp}.md");
 
 TtfbTracker.WriteReport(ttfbReportPath);
+ResponseSizeTracker.WriteReport(sizeReportPath);
