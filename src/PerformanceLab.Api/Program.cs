@@ -3,6 +3,8 @@ using PerformanceLab.Api.Middleware;
 using PerformanceLab.Application.Users;
 using PerformanceLab.Application.Users.Abstractions;
 using PerformanceLab.Infrastructure.Users;
+using Microsoft.AspNetCore.ResponseCompression;
+using System.IO.Compression;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,10 +36,54 @@ if (perfFeatures.EnableOutputCaching)
     });
 }
 
+// Conditionally add response compression
+if (perfFeatures.EnableCompression)
+{
+    builder.Services.AddResponseCompression(options =>
+    {
+        options.EnableForHttps = true;  // Enable compression for HTTPS
+        
+        // Configure providers based on algorithm selection
+        switch (perfFeatures.CompressionAlgorithm)
+        {
+            case CompressionAlgorithm.Gzip:
+                options.Providers.Add<GzipCompressionProvider>();
+                break;
+            case CompressionAlgorithm.Brotli:
+                options.Providers.Add<BrotliCompressionProvider>();
+                break;
+            case CompressionAlgorithm.Both:
+                options.Providers.Add<BrotliCompressionProvider>();
+                options.Providers.Add<GzipCompressionProvider>();
+                break;
+        }
+        
+        // Compress JSON responses
+        options.MimeTypes = new[] { "application/json" };
+    });
+    
+    // Configure compression levels
+    builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+    {
+        options.Level = CompressionLevel.Fastest;  // Balance speed vs ratio
+    });
+    
+    builder.Services.Configure<GzipCompressionProviderOptions>(options =>
+    {
+        options.Level = CompressionLevel.Fastest;
+    });
+}
+
 var app = builder.Build();
 
 // TTFB (Time to First Byte) measurement middleware
 app.UseTtfb();
+
+// Response compression (BEFORE caching to cache compressed responses)
+if (perfFeatures.EnableCompression)
+{
+    app.UseResponseCompression();
+}
 
 if (app.Environment.IsDevelopment())
 {
