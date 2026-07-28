@@ -11,4 +11,9 @@ public static class MiddlewareExtensions
     {
         return builder.UseMiddleware<TtfbMiddleware>();
     }
+    
+    public static IApplicationBuilder UseResponseSize(this IApplicationBuilder builder)
+    {
+        return builder.UseMiddleware<ResponseSizeMiddleware>();
+    }
 }

@@ -100,6 +100,12 @@ if (perfFeatures.EnableOutputCaching)
     app.UseOutputCache();
 }
 
+// Response size tracking (AFTER compression to measure wire size)
+if (perfFeatures.EnableCompression)
+{
+    app.UseResponseSize();
+}
+
 app.MapControllers();
 
 // Conditional cache warm-up
