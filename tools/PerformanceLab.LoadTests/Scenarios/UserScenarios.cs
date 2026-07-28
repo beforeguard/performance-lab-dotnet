@@ -31,8 +31,18 @@ public static class UsersScenarios
                 }
             }
             
-            // Complete reading the response body
-            await response.Content.ReadAsByteArrayAsync();
+            // Read response body and measure actual wire size
+            var responseBytes = await response.Content.ReadAsByteArrayAsync();
+            
+            // Extract compression type
+            string compressionType = "none";
+            if (response.Content.Headers.ContentEncoding.Any())
+            {
+                compressionType = string.Join(", ", response.Content.Headers.ContentEncoding);
+            }
+            
+            // Track actual response size (wire bytes after compression)
+            ResponseSizeTracker.Record(responseBytes.Length, compressionType);
 
             return ttfbMs.HasValue
                 ? Response.Ok(payload: ttfbMs.Value) // Track TTFB as payload for custom metrics
@@ -66,8 +76,18 @@ public static class UsersScenarios
                 }
             }
             
-            // Complete reading the response body
-            await response.Content.ReadAsByteArrayAsync();
+            // Read response body and measure actual wire size
+            var responseBytes = await response.Content.ReadAsByteArrayAsync();
+            
+            // Extract compression type
+            string compressionType = "none";
+            if (response.Content.Headers.ContentEncoding.Any())
+            {
+                compressionType = string.Join(", ", response.Content.Headers.ContentEncoding);
+            }
+            
+            // Track actual response size (wire bytes after compression)
+            ResponseSizeTracker.Record(responseBytes.Length, compressionType);
 
             return ttfbMs.HasValue
                 ? Response.Ok(payload: ttfbMs.Value) // Track TTFB as payload for custom metrics

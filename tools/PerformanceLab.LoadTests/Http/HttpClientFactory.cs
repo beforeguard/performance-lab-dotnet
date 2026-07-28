@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 
 namespace PerformanceLab.LoadTests.Http;
 
@@ -9,9 +10,16 @@ public static class HttpClientFactory
         var handler = new HttpClientHandler
         {
             ServerCertificateCustomValidationCallback =
-                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+            AutomaticDecompression = DecompressionMethods.None  // Disable to measure wire size
         };
 
-        return new HttpClient(handler);
+        var client = new HttpClient(handler);
+        
+        // Request compression (both Gzip and Brotli)
+        client.DefaultRequestHeaders.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
+        client.DefaultRequestHeaders.AcceptEncoding.Add(new StringWithQualityHeaderValue("br"));
+        
+        return client;
     }
 }
