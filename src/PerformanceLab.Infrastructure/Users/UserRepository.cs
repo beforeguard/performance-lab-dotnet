@@ -24,4 +24,24 @@ public class UserRepository : IUserRepository
     {
         return _users;
     }
+
+    public IReadOnlyList<User> GetPage(int offset, int limit)
+    {
+        if (offset < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be greater than or equal to 0.");
+        }
+
+        if (limit <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit), "Limit must be greater than 0.");
+        }
+
+        return _users.Skip(offset).Take(limit).ToList();
+    }
+
+    public int GetCount()
+    {
+        return _users.Count;
+    }
 }
