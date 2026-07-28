@@ -6,6 +6,12 @@ An ASP.NET Core performance and profiling lab for measuring runtime behavior, GC
 
 This project demonstrates systematic performance optimization through controlled experiments on a .NET 10 API. Each optimization is implemented as a toggleable feature, measured independently, and documented with before/after metrics.
 
+**Key Achievements:**
+- 🏆 **54% faster latency** - 3.92ms → 1.80ms mean (Experiment 006: Combined + Brotli)
+- 🏆 **89.5% bandwidth reduction** - 307KB → 32KB per request (Brotli compression)
+- 🏆 **99.96% cached bandwidth savings** - 190KB → 79 bytes with ArrayPool + Cache + Compression
+- 🏆 **100% success rate** - All optimizations maintain reliability at scale
+
 ## Current State
 
 The solution is structured as a small layered .NET 10 app:
@@ -15,7 +21,7 @@ The solution is structured as a small layered .NET 10 app:
 - `src/PerformanceLab.Domain` - Core `User` entity
 - `src/PerformanceLab.Infrastructure` - In-memory user repository
 - `src/PerformanceLab.Shared` - Shared configuration (`PerformanceFeatures`)
-- `tools/PerformanceLab.LoadTests` - NBomber load test harness with TTFB tracking
+- `tools/PerformanceLab.LoadTests` - NBomber load test harness with TTFB and response size tracking
 
 **Endpoint:**
 - `GET /users` - Returns 10,000 in-memory users as `UserDto` (Id + Name)
@@ -24,6 +30,8 @@ The solution is structured as a small layered .NET 10 app:
 - **EnableObjectPooling** - ArrayPool-based DTO allocation (`PooledUserDtoCollection`)
 - **EnableOutputCaching** - ASP.NET Core output caching with 60s TTL
 - **EnableStreaming** - IEnumerable streaming serialization (reduces TTFB)
+- **EnableCompression** - HTTP response compression (Gzip/Brotli)
+- **CompressionAlgorithm** - Compression algorithm selection: `Gzip`, `Brotli`, or `Both`
 
 ## Project Layout
 
@@ -36,6 +44,7 @@ The solution is structured as a small layered .NET 10 app:
 │   ├── experiment-003.md        # OutputCache optimization
 │   ├── experiment-004.md        # Combined optimizations
 │   ├── experiment-005.md        # Response streaming (TTFB)
+│   ├── experiment-006.md        # Response compression (Gzip/Brotli)
 │   └── performance-experiments-tracking.md
 ├── results/                     # Experiment outputs (gitignored)
 ├── reports/                     # NBomber HTML reports (gitignored)
@@ -84,10 +93,13 @@ The automated experiment runner handles API startup, performance monitoring, loa
 # Streaming (ArrayPool + Streaming)
 .\scripts\run-experiment.ps1 -Pool -Stream
 
-# All optimizations
-.\scripts\run-experiment.ps1 -Cache -Pool -Stream
+# Compression (Brotli)
+.\scripts\run-experiment.ps1 -Compression
 
-# Run all 8 configurations (complete matrix: Cache × Pool × Stream)
+# Combined + Compression (recommended for production)
+.\scripts\run-experiment.ps1 -Cache -Pool -Compression
+
+# Run all configurations including compression variants
 .\scripts\run-experiment.ps1 -All
 ```
 
@@ -96,7 +108,7 @@ The automated experiment runner handles API startup, performance monitoring, loa
 2. Starts API with specified feature flags (via environment variables)
 3. Starts `dotnet-counters` for GC/memory metrics
 4. Runs NBomber load tests (baseline + capacity curve scenarios)
-5. Generates TTFB report and experiment summary
+5. Generates TTFB and response size reports
 6. Saves results to timestamped folder in `results/`
 7. Cleans up processes
 
@@ -105,6 +117,7 @@ The automated experiment runner handles API startup, performance monitoring, loa
 - `results/{timestamp}_{config}/nbomber.txt` - Latency metrics
 - `results/{timestamp}_{config}/counters.csv` - GC and allocation data
 - `reports/ttfb_report_{timestamp}.md` - Time-to-first-byte analysis
+- `reports/response_size_report_{timestamp}.md` - Response size and compression metrics
 
 ## Manual Load Testing
 
@@ -129,6 +142,8 @@ Performance features are controlled via `appsettings.json` or environment variab
     "EnableOutputCaching": true,
     "EnableObjectPooling": true,
     "EnableStreaming": false,
+    "EnableCompression": true,
+    "CompressionAlgorithm": "Brotli",
     "CacheDurationSeconds": 60
   }
 }
@@ -139,6 +154,8 @@ Performance features are controlled via `appsettings.json` or environment variab
 $env:PerformanceFeatures__EnableOutputCaching = "true"
 $env:PerformanceFeatures__EnableObjectPooling = "true"
 $env:PerformanceFeatures__EnableStreaming = "false"
+$env:PerformanceFeatures__EnableCompression = "true"
+$env:PerformanceFeatures__CompressionAlgorithm = "Brotli"
 ```
 
 **Response headers** indicate active features:
@@ -146,6 +163,7 @@ $env:PerformanceFeatures__EnableStreaming = "false"
 - `X-Pooling-Enabled: True/False`
 - `X-Streaming-Enabled: True/False`
 - `X-TTFB-Ms: {milliseconds}` - Time to first byte
+- `Content-Encoding: gzip|br` - Active compression algorithm
 
 ## Diagnostics
 
@@ -171,12 +189,14 @@ dotnet trace collect --process-id {PID} --providers Microsoft-DotNETCore-SampleP
 | 002 | ArrayPool optimization | 2.79ms p50 (-49%), 5.01ms p95 (-47%) | ✅ Complete |
 | 003 | OutputCache optimization | Variable (coordination overhead) | ✅ Complete |
 | 004 | Combined (Pool + Cache) | 1.61ms p50 (-70%), 2.50ms p95 (-74%) | ✅ Complete |
-| 005 | Response streaming | TTFB reduction target: -40% | 🚧 In Progress |
+| 005 | Response streaming | -57% TTFB but +12-503% latency (rejected) | ✅ Complete |
+| 006 | Response compression | 89.5% bandwidth reduction (Brotli) | ✅ Complete |
 
-**Best configuration (Experiment 004):**
-- ArrayPool + OutputCache
-- **p50 latency:** 1.61ms (70% improvement)
-- **p95 latency:** 2.50ms (74% improvement)
+**Best configuration (Experiment 006):**
+- ArrayPool + OutputCache + Brotli Compression
+- **Mean latency:** 1.80ms (54% improvement vs baseline)
+- **p95 latency:** 2.28ms (66% improvement vs baseline)
+- **Response size:** 79 bytes cached (99.96% reduction), 32KB uncached (89.5% reduction)
 - **Success rate:** 100%
 
 See `docs/performance-experiments-tracking.md` for detailed tracking.
@@ -197,10 +217,16 @@ See `docs/performance-experiments-tracking.md` for detailed tracking.
 - Time from request received to response start
 - Critical for streaming evaluation
 
+**Response Size (compression tracking):**
+- Wire bytes transferred (compressed size)
+- Compression ratio and algorithm distribution
+- Bandwidth savings per configuration
+
 ## Next Steps
 
-- [ ] Complete Experiment 005 (streaming evaluation)
-- [ ] Experiment 006: Response compression
+- [x] Complete Experiment 005 (streaming evaluation - rejected)
+- [x] Complete Experiment 006 (response compression - Brotli recommended)
+- [ ] Experiment 007: Pagination
 - [ ] Experiment 009: Database integration (replace in-memory repo)
 
 ## Documentation
