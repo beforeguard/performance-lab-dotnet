@@ -79,6 +79,13 @@ var app = builder.Build();
 // TTFB (Time to First Byte) measurement middleware
 app.UseTtfb();
 
+// Response size tracking (wraps stream to count bytes - must be BEFORE compression)
+// Middleware executes in reverse order for responses, so this wraps the compressed stream
+if (perfFeatures.EnableCompression)
+{
+    app.UseResponseSize();
+}
+
 // Response compression (BEFORE caching to cache compressed responses)
 if (perfFeatures.EnableCompression)
 {
@@ -98,12 +105,6 @@ if (perfFeatures.EnableOutputCaching)
 {
     app.UseCacheLogging();
     app.UseOutputCache();
-}
-
-// Response size tracking (AFTER compression to measure wire size)
-if (perfFeatures.EnableCompression)
-{
-    app.UseResponseSize();
 }
 
 app.MapControllers();

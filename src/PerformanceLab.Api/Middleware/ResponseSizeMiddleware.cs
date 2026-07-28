@@ -13,27 +13,39 @@ public class ResponseSizeMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // Let the response flow through the pipeline normally (doesn't break compression)
-        await _next(context);
+        // Wrap response stream with counting wrapper (doesn't buffer, just counts)
+        var originalBodyStream = context.Response.Body;
+        var countingStream = new CountingStream(originalBodyStream);
+        context.Response.Body = countingStream;
         
-        // Read the Content-Length header set by ASP.NET (wire size after compression)
-        if (context.Response.ContentLength.HasValue)
+        // Register callback to set header just before response starts
+        context.Response.OnStarting(() =>
         {
-            var responseSize = context.Response.ContentLength.Value;
+            // Set header before response is sent
+            context.Response.Headers["X-Response-Size-Bytes"] = countingStream.BytesWritten.ToString();
+            return Task.CompletedTask;
+        });
+        
+        try
+        {
+            // Let response flow through the pipeline (compression can work normally)
+            await _next(context);
             
-            // Add header for NBomber to track
-            context.Response.Headers["X-Response-Size-Bytes"] = responseSize.ToString();
-            
-            // Check if compression was applied
+            // After response completes, log the metrics
+            var responseSize = countingStream.BytesWritten;
             var compressionType = context.Response.Headers.ContentEncoding.FirstOrDefault() ?? "none";
             
-            // Log response metrics
             _logger.LogInformation(
                 "Response: {Method} {Path} | Size: {Size} bytes | Compression: {Compression}",
                 context.Request.Method,
                 context.Request.Path,
                 responseSize,
                 compressionType);
+        }
+        finally
+        {
+            // Restore original stream
+            context.Response.Body = originalBodyStream;
         }
     }
 }
