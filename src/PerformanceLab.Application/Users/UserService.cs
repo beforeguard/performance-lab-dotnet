@@ -16,11 +16,11 @@ public class UserService
         _perfFeatures = perfFeatures;
     }
 
-    public IEnumerable<UserDto> GetUsers()
+    public IEnumerable<UserDto> GetUsers(int? offset = null, int? limit = null)
     {
         if (_perfFeatures.EnableObjectPooling)
         {
-            var pooledUsers = GetUsersWithPooling();
+            var pooledUsers = GetUsersWithPooling(offset, limit);
             
             if (_perfFeatures.EnableStreaming)
             {
@@ -39,7 +39,7 @@ public class UserService
         else
         {
             // LINQ approach (baseline)
-            var users = GetUsersWithLinq();
+            var users = GetUsersWithLinq(offset, limit);
             
             // Conditionally materialize based on EnableStreaming flag
             return _perfFeatures.EnableStreaming 
@@ -48,9 +48,17 @@ public class UserService
         }
     }
 
-    private PooledUserDtoCollection GetUsersWithPooling()
+    public int GetCount()
     {
-        var users = _repo.GetAll();
+        return _repo.GetCount();
+    }
+
+    private PooledUserDtoCollection GetUsersWithPooling(int? offset = null, int? limit = null)
+    {
+        // Get users - paginated or all
+        var users = limit.HasValue 
+            ? _repo.GetPage(offset ?? 0, limit.Value) 
+            : _repo.GetAll();
         var count = users.Count;
         
         // Rent array from pool
@@ -71,9 +79,14 @@ public class UserService
         return new PooledUserDtoCollection(dtoArray, count);
     }
 
-    private IEnumerable<UserDto> GetUsersWithLinq()
+    private IEnumerable<UserDto> GetUsersWithLinq(int? offset = null, int? limit = null)
     {
-        return _repo.GetAll()
+        // Get users - paginated or all
+        var users = limit.HasValue 
+            ? _repo.GetPage(offset ?? 0, limit.Value) 
+            : _repo.GetAll();
+            
+        return users
             .Select(u => new UserDto
             {
                 Id = u.Id,
