@@ -31,15 +31,8 @@ public static class UsersScenarios
                 }
             }
             
-            // Extract response size from header (if present)
-            long? responseSizeBytes = null;
-            if (response.Headers.TryGetValues("X-Response-Size-Bytes", out var sizeValues))
-            {
-                if (long.TryParse(sizeValues.FirstOrDefault(), out var size))
-                {
-                    responseSizeBytes = size;
-                }
-            }
+            // Read response body and measure actual wire size
+            var responseBytes = await response.Content.ReadAsByteArrayAsync();
             
             // Extract compression type
             string compressionType = "none";
@@ -48,14 +41,8 @@ public static class UsersScenarios
                 compressionType = string.Join(", ", response.Content.Headers.ContentEncoding);
             }
             
-            // Track response size and compression
-            if (responseSizeBytes.HasValue)
-            {
-                ResponseSizeTracker.Record(responseSizeBytes.Value, compressionType);
-            }
-            
-            // Complete reading the response body
-            await response.Content.ReadAsByteArrayAsync();
+            // Track actual response size (wire bytes after compression)
+            ResponseSizeTracker.Record(responseBytes.Length, compressionType);
 
             return ttfbMs.HasValue
                 ? Response.Ok(payload: ttfbMs.Value) // Track TTFB as payload for custom metrics
@@ -89,15 +76,8 @@ public static class UsersScenarios
                 }
             }
             
-            // Extract response size from header (if present)
-            long? responseSizeBytes = null;
-            if (response.Headers.TryGetValues("X-Response-Size-Bytes", out var sizeValues))
-            {
-                if (long.TryParse(sizeValues.FirstOrDefault(), out var size))
-                {
-                    responseSizeBytes = size;
-                }
-            }
+            // Read response body and measure actual wire size
+            var responseBytes = await response.Content.ReadAsByteArrayAsync();
             
             // Extract compression type
             string compressionType = "none";
@@ -106,14 +86,8 @@ public static class UsersScenarios
                 compressionType = string.Join(", ", response.Content.Headers.ContentEncoding);
             }
             
-            // Track response size and compression
-            if (responseSizeBytes.HasValue)
-            {
-                ResponseSizeTracker.Record(responseSizeBytes.Value, compressionType);
-            }
-            
-            // Complete reading the response body
-            await response.Content.ReadAsByteArrayAsync();
+            // Track actual response size (wire bytes after compression)
+            ResponseSizeTracker.Record(responseBytes.Length, compressionType);
 
             return ttfbMs.HasValue
                 ? Response.Ok(payload: ttfbMs.Value) // Track TTFB as payload for custom metrics
