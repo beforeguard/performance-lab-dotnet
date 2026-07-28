@@ -13,36 +13,27 @@ public class ResponseSizeMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // Capture original response body stream
-        var originalBodyStream = context.Response.Body;
-        
-        using var responseBody = new MemoryStream();
-        context.Response.Body = responseBody;
-        
+        // Let the response flow through the pipeline normally (doesn't break compression)
         await _next(context);
         
-        // Measure response size
-        var responseSize = responseBody.Length;
-        
-        // Add headers for observability
-        context.Response.Headers["X-Response-Size-Bytes"] = responseSize.ToString();
-        
-        // Check if compression was applied
-        var isCompressed = context.Response.Headers.ContainsKey("Content-Encoding");
-        var compressionType = isCompressed 
-            ? context.Response.Headers["Content-Encoding"].ToString() 
-            : "none";
-        
-        // Log response size
-        _logger.LogInformation(
-            "Response: {Method} {Path} | Size: {Size} bytes | Compression: {Compression}",
-            context.Request.Method,
-            context.Request.Path,
-            responseSize,
-            compressionType);
-        
-        // Copy response back to original stream
-        responseBody.Seek(0, SeekOrigin.Begin);
-        await responseBody.CopyToAsync(originalBodyStream);
+        // Read the Content-Length header set by ASP.NET (wire size after compression)
+        if (context.Response.ContentLength.HasValue)
+        {
+            var responseSize = context.Response.ContentLength.Value;
+            
+            // Add header for NBomber to track
+            context.Response.Headers["X-Response-Size-Bytes"] = responseSize.ToString();
+            
+            // Check if compression was applied
+            var compressionType = context.Response.Headers.ContentEncoding.FirstOrDefault() ?? "none";
+            
+            // Log response metrics
+            _logger.LogInformation(
+                "Response: {Method} {Path} | Size: {Size} bytes | Compression: {Compression}",
+                context.Request.Method,
+                context.Request.Path,
+                responseSize,
+                compressionType);
+        }
     }
 }
