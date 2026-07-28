@@ -6,10 +6,20 @@ using PerformanceLab.LoadTests.Metrics;
 // and tracked as payload. NBomber will report standard latency metrics.
 // For TTFB analysis, inspect the X-TTFB-Ms header values or add custom reporting.
 
+// Experiment 007: Pagination Scalability Curve
+// Runs all page sizes sequentially to measure latency vs response size relationship
+// Results will show how latency scales with the number of users returned
+
 var stats = NBomberRunner
     .RegisterScenarios(
-        UsersScenarios.Baseline(),
-        UsersScenarios.CapacityCurve()
+        UsersScenarios.Baseline(),               // All 10,000 users (no pagination)
+        UsersScenarios.Paginated(10),            // 10 users per page
+        UsersScenarios.Paginated(50),            // 50 users per page
+        UsersScenarios.Paginated(100),           // 100 users per page
+        UsersScenarios.Paginated(500),           // 500 users per page
+        UsersScenarios.Paginated(1000),          // 1,000 users per page
+        UsersScenarios.CapacityCurve(),          // Throughput test - all users
+        UsersScenarios.CapacityCurvePaginated()  // Throughput test - 100 users/page (default)
     )
     .Run();
 
