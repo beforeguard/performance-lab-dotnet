@@ -11,7 +11,7 @@ public static class HttpClientFactory
         {
             ServerCertificateCustomValidationCallback =
                 HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
-            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Brotli
+            AutomaticDecompression = DecompressionMethods.None  // Disable to measure wire size
         };
 
         var client = new HttpClient(handler);
