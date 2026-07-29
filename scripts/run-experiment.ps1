@@ -5,6 +5,7 @@ param (
     [switch]$Pool,
     [switch]$Stream,
     [switch]$Compression,
+    [switch]$SourceGen,
     [switch]$All,
     
     [int]$WarmupSeconds = 3
@@ -27,22 +28,22 @@ if ($All) {
     # Run all 12 configurations (4 base + 4 Gzip + 4 Brotli)
     $configurations = @(
         # Without compression
-        @{Cache=$false; Pool=$false; Stream=$false; Compression=$false; Algorithm="None"; Name="baseline"},
-        @{Cache=$false; Pool=$true;  Stream=$false; Compression=$false; Algorithm="None"; Name="pool"},
-        @{Cache=$true;  Pool=$false; Stream=$false; Compression=$false; Algorithm="None"; Name="cache"},
-        @{Cache=$true;  Pool=$true;  Stream=$false; Compression=$false; Algorithm="None"; Name="combined"},
+        @{Cache=$false; Pool=$false; Stream=$false; Compression=$false; Algorithm="None"; SourceGen=$true; Name="baseline"},
+        @{Cache=$false; Pool=$true;  Stream=$false; Compression=$false; Algorithm="None"; SourceGen=$true; Name="pool"},
+        @{Cache=$true;  Pool=$false; Stream=$false; Compression=$false; Algorithm="None"; SourceGen=$true; Name="cache"},
+        @{Cache=$true;  Pool=$true;  Stream=$false; Compression=$false; Algorithm="None"; SourceGen=$true; Name="combined"},
         
         # With Gzip compression
-        @{Cache=$false; Pool=$false; Stream=$false; Compression=$true; Algorithm="Gzip"; Name="baseline_gzip"},
-        @{Cache=$false; Pool=$true;  Stream=$false; Compression=$true; Algorithm="Gzip"; Name="pool_gzip"},
-        @{Cache=$true;  Pool=$false; Stream=$false; Compression=$true; Algorithm="Gzip"; Name="cache_gzip"},
-        @{Cache=$true;  Pool=$true;  Stream=$false; Compression=$true; Algorithm="Gzip"; Name="combined_gzip"},
+        @{Cache=$false; Pool=$false; Stream=$false; Compression=$true; Algorithm="Gzip"; SourceGen=$true; Name="baseline_gzip"},
+        @{Cache=$false; Pool=$true;  Stream=$false; Compression=$true; Algorithm="Gzip"; SourceGen=$true; Name="pool_gzip"},
+        @{Cache=$true;  Pool=$false; Stream=$false; Compression=$true; Algorithm="Gzip"; SourceGen=$true; Name="cache_gzip"},
+        @{Cache=$true;  Pool=$true;  Stream=$false; Compression=$true; Algorithm="Gzip"; SourceGen=$true; Name="combined_gzip"},
         
         # With Brotli compression
-        @{Cache=$false; Pool=$false; Stream=$false; Compression=$true; Algorithm="Brotli"; Name="baseline_brotli"},
-        @{Cache=$false; Pool=$true;  Stream=$false; Compression=$true; Algorithm="Brotli"; Name="pool_brotli"},
-        @{Cache=$true;  Pool=$false; Stream=$false; Compression=$true; Algorithm="Brotli"; Name="cache_brotli"},
-        @{Cache=$true;  Pool=$true;  Stream=$false; Compression=$true; Algorithm="Brotli"; Name="combined_brotli"}
+        @{Cache=$false; Pool=$false; Stream=$false; Compression=$true; Algorithm="Brotli"; SourceGen=$true; Name="baseline_brotli"},
+        @{Cache=$false; Pool=$true;  Stream=$false; Compression=$true; Algorithm="Brotli"; SourceGen=$true; Name="pool_brotli"},
+        @{Cache=$true;  Pool=$false; Stream=$false; Compression=$true; Algorithm="Brotli"; SourceGen=$true; Name="cache_brotli"},
+        @{Cache=$true;  Pool=$true;  Stream=$false; Compression=$true; Algorithm="Brotli"; SourceGen=$true; Name="combined_brotli"}
     )
     
     Write-Host "Running ALL configurations (12 total - compression algorithm comparison)" -ForegroundColor Yellow
@@ -68,6 +69,7 @@ if ($All) {
     $enablePool = $Pool.IsPresent
     $enableStream = $Stream.IsPresent
     $enableCompression = $Compression.IsPresent
+    $enableSourceGen = $SourceGen.IsPresent
     
     # Determine compression algorithm (default to Brotli if compression enabled)
     $algorithm = if ($enableCompression) { "Brotli" } else { "None" }
@@ -93,7 +95,12 @@ if ($All) {
         $configName += "_brotli"
     }
     
-    $configurations = @(@{Cache=$enableCache; Pool=$enablePool; Stream=$enableStream; Compression=$enableCompression; Algorithm=$algorithm; Name=$configName})
+    # Add sourcegen suffix if enabled
+    if ($enableSourceGen) {
+        $configName += "_sourcegen"
+    }
+    
+    $configurations = @(@{Cache=$enableCache; Pool=$enablePool; Stream=$enableStream; Compression=$enableCompression; Algorithm=$algorithm; SourceGen=$enableSourceGen; Name=$configName})
     
     if ($configName -eq "baseline") {
         Write-Host "Running BASELINE configuration (no optimizations)" -ForegroundColor Yellow
@@ -126,6 +133,7 @@ foreach ($config in $configurations) {
     Write-Host "  EnableStreaming: $($config.Stream)" -ForegroundColor Gray
     Write-Host "  EnableCompression: $($config.Compression)" -ForegroundColor Gray
     Write-Host "  CompressionAlgorithm: $($config.Algorithm)" -ForegroundColor Gray
+    Write-Host "  EnableJsonSourceGenerators: $($config.SourceGen)" -ForegroundColor Gray
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
     
@@ -138,12 +146,14 @@ foreach ($config in $configurations) {
     $env:PerformanceFeatures__EnableStreaming = $config.Stream.ToString().ToLower()
     $env:PerformanceFeatures__EnableCompression = $config.Compression.ToString().ToLower()
     $env:PerformanceFeatures__CompressionAlgorithm = $config.Algorithm
+    $env:PerformanceFeatures__EnableJsonSourceGenerators = $config.SourceGen.ToString().ToLower()
     
     Write-Host "  PerformanceFeatures__EnableOutputCaching=$($env:PerformanceFeatures__EnableOutputCaching)" -ForegroundColor Gray
     Write-Host "  PerformanceFeatures__EnableObjectPooling=$($env:PerformanceFeatures__EnableObjectPooling)" -ForegroundColor Gray
     Write-Host "  PerformanceFeatures__EnableStreaming=$($env:PerformanceFeatures__EnableStreaming)" -ForegroundColor Gray
     Write-Host "  PerformanceFeatures__EnableCompression=$($env:PerformanceFeatures__EnableCompression)" -ForegroundColor Gray
     Write-Host "  PerformanceFeatures__CompressionAlgorithm=$($env:PerformanceFeatures__CompressionAlgorithm)" -ForegroundColor Gray
+    Write-Host "  PerformanceFeatures__EnableJsonSourceGenerators=$($env:PerformanceFeatures__EnableJsonSourceGenerators)" -ForegroundColor Gray
     
     # -----------------------------
     # Create result folder
@@ -230,6 +240,7 @@ $timestamp
 - **EnableStreaming:** $($config.Stream)
 - **EnableCompression:** $($config.Compression)
 - **CompressionAlgorithm:** $($config.Algorithm)
+- **EnableJsonSourceGenerators:** $($config.SourceGen)
 
 ## Endpoint
 GET /users
@@ -270,6 +281,7 @@ Compare against previous experiment folders in /results
     Remove-Item Env:\PerformanceFeatures__EnableStreaming -ErrorAction SilentlyContinue
     Remove-Item Env:\PerformanceFeatures__EnableCompression -ErrorAction SilentlyContinue
     Remove-Item Env:\PerformanceFeatures__CompressionAlgorithm -ErrorAction SilentlyContinue
+    Remove-Item Env:\PerformanceFeatures__EnableJsonSourceGenerators -ErrorAction SilentlyContinue
     
     Write-Host "Configuration '$($config.Name)' complete!" -ForegroundColor Green
     
