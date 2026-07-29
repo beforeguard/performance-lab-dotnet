@@ -7,9 +7,9 @@ An ASP.NET Core performance and profiling lab for measuring runtime behavior, GC
 This project demonstrates systematic performance optimization through controlled experiments on a .NET 10 API. Each optimization is implemented as a toggleable feature, measured independently, and documented with before/after metrics.
 
 **Key Achievements:**
-- 🏆 **54% faster latency** - 3.92ms → 1.80ms mean (Experiment 006: Combined + Brotli)
-- 🏆 **89.5% bandwidth reduction** - 307KB → 32KB per request (Brotli compression)
-- 🏆 **99.96% cached bandwidth savings** - 190KB → 79 bytes with ArrayPool + Cache + Compression
+- 🏆 **51% faster latency** - 2.88ms → 1.40ms mean (Experiment 007: Pagination + Combined + Brotli)
+- 🏆 **99.7% bandwidth reduction** - 307KB → 1KB per request (100-user pagination + Brotli)
+- 🏆 **Linear scalability** - Sub-2ms p95 latency maintained across all page sizes
 - 🏆 **100% success rate** - All optimizations maintain reliability at scale
 
 ## Current State
@@ -32,6 +32,7 @@ The solution is structured as a small layered .NET 10 app:
 - **EnableStreaming** - IEnumerable streaming serialization (reduces TTFB)
 - **EnableCompression** - HTTP response compression (Gzip/Brotli)
 - **CompressionAlgorithm** - Compression algorithm selection: `Gzip`, `Brotli`, or `Both`
+- **Pagination** - Optional offset/limit query parameters for subset responses
 
 ## Project Layout
 
@@ -45,6 +46,7 @@ The solution is structured as a small layered .NET 10 app:
 │   ├── experiment-004.md        # Combined optimizations
 │   ├── experiment-005.md        # Response streaming (TTFB)
 │   ├── experiment-006.md        # Response compression (Gzip/Brotli)
+│   ├── experiment-007.md        # Pagination (scalability curve)
 │   └── performance-experiments-tracking.md
 ├── results/                     # Experiment outputs (gitignored)
 ├── reports/                     # NBomber HTML reports (gitignored)
@@ -191,13 +193,15 @@ dotnet trace collect --process-id {PID} --providers Microsoft-DotNETCore-SampleP
 | 004 | Combined (Pool + Cache) | 1.61ms p50 (-70%), 2.50ms p95 (-74%) | ✅ Complete |
 | 005 | Response streaming | -57% TTFB but +12-503% latency (rejected) | ✅ Complete |
 | 006 | Response compression | 89.5% bandwidth reduction (Brotli) | ✅ Complete |
+| 007 | Pagination | 6-12% faster (optimized), 60-66% faster (baseline) | ✅ Complete |
 
-**Best configuration (Experiment 006):**
-- ArrayPool + OutputCache + Brotli Compression
-- **Mean latency:** 1.80ms (54% improvement vs baseline)
-- **p95 latency:** 2.28ms (66% improvement vs baseline)
-- **Response size:** 79 bytes cached (99.96% reduction), 32KB uncached (89.5% reduction)
+**Best configuration (Experiment 007):**
+- ArrayPool + OutputCache + Brotli Compression + Pagination (100 users)
+- **Mean latency:** 1.40ms (51% improvement vs baseline)
+- **p95 latency:** 1.76ms (48% improvement vs baseline)
+- **Response size:** ~1KB per page (99.7% reduction vs full dataset)
 - **Success rate:** 100%
+- **Scalability:** Sub-2ms p95 across all page sizes (10-1,000 users)
 
 See `docs/performance-experiments-tracking.md` for detailed tracking.
 
@@ -226,7 +230,8 @@ See `docs/performance-experiments-tracking.md` for detailed tracking.
 
 - [x] Complete Experiment 005 (streaming evaluation - rejected)
 - [x] Complete Experiment 006 (response compression - Brotli recommended)
-- [ ] Experiment 007: Pagination
+- [x] Complete Experiment 007 (pagination - linear scaling confirmed)
+- [ ] Experiment 008: Async repository (prepare for database I/O)
 - [ ] Experiment 009: Database integration (replace in-memory repo)
 
 ## Documentation

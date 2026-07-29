@@ -24,12 +24,12 @@
 | 004b | Combined (Pool+Cache) | ✅ Complete | **-58.9% mean, -62.2% p95** - Best base 🏆 | [experiment-004.md](experiment-004.md#phase-3) |
 | 005 | Response Streaming | ✅ Complete | -57% TTFB but +12-503% latency - **REJECTED** ❌ | [experiment-005.md](experiment-005.md) |
 | 006 | Response Compression | ✅ Complete | **-89.5% bandwidth (Brotli), +12.5% CPU** - ACCEPTED 🏆 | [experiment-006.md](experiment-006.md) |
+| 007 | Pagination | ✅ Complete | **6-12% faster (optimized), 60-66% faster (baseline)** - ACCEPTED 🏆 | [experiment-007.md](experiment-007.md) |
 
 ### 🔲 Planned Experiments
 
 | # | Name | Status | Hypothesis | Expected Impact |
 |---|------|--------|------------|-----------------|
-| 007 | Pagination | 🔲 Planned | Returning subsets dramatically reduces serialization | -95% latency for paginated responses |
 | 008 | Async Repository | 🔲 Planned | Async patterns prepare for I/O without performance penalty | Neutral latency, improved thread pool utilization |
 | 009 | Database Integration | 🔲 Planned | EF Core + optimizations can approach in-memory performance | +50-100% latency (acceptable for persistence) |
 
@@ -46,6 +46,7 @@
 | **004b - Pool+Cache** | **1.61ms (-58.9%)** 🏆 | **2.50ms (-62.2%)** 🏆 | **190 KB** | **100%** | **99.98% cache hit** 🏆 |
 | 005 - Streaming | 1.87ms | 15.91ms (+503%) | 190 KB | 100% | TTFB -57%, rejected ❌ |
 | **006 - Compression (Brotli)** | **1.80ms (-54%)** 🏆 | **2.28ms (-66%)** 🏆 | **32 KB (-89.5%)** 🏆 | **100%** | **79 bytes cached** 🚀 |
+| **007 - Pagination (100 users)** | **1.40ms (-51%)** 🏆 | **1.76ms (-48%)** 🏆 | **~1 KB (compressed)** 🏆 | **100%** | **Linear scaling** ✅ |
 
 **Production Recommendation:** Enable ArrayPool + OutputCache + Brotli compression for optimal latency and bandwidth efficiency.
 
@@ -60,7 +61,7 @@
 | 004b | appsettings.json | Set EnableOutputCaching + EnableObjectPooling to true |
 | 005 | PerformanceFeatures.cs, Program.cs, UserService.cs, UsersController.cs, TtfbMiddleware.cs (new) | EnableStreaming flag, IEnumerable return type, TTFB tracking |
 | 006 | PerformanceFeatures.cs, Program.cs, HttpClientFactory.cs, UserScenarios.cs, ResponseSizeTracker.cs (new), run-experiment.ps1 | ResponseCompression middleware, response size measurement, compression algorithms |
-| 007 | UsersController.cs, IUserRepository, UserRepository | Add limit/offset parameters (planned) |
+| 007 | IUserRepository.cs, UserRepository.cs, UserService.cs, UsersController.cs, PagedResult.cs (new), UserScenarios.cs, Program.cs | Pagination (offset/limit), PagedResult wrapper, parameterized scenarios |
 | 008 | IUserRepository, UserRepository, UserService, UsersController | Convert to async/await (planned) |
 | 009 | UserRepository.cs, Program.cs, DbContext (new) | Replace in-memory with EF Core (planned) |
 
