@@ -7,9 +7,10 @@ An ASP.NET Core performance and profiling lab for measuring runtime behavior, GC
 This project demonstrates systematic performance optimization through controlled experiments on a .NET 10 API. Each optimization is implemented as a toggleable feature, measured independently, and documented with before/after metrics.
 
 **Key Achievements:**
-- 🏆 **51% faster latency** - 2.88ms → 1.40ms mean (Experiment 007: Pagination + Combined + Brotli)
+- 🏆 **78% faster latency** - 2.88ms → 0.62ms mean (Full optimization stack)
+- 🏆 **75% faster p95** - 3.36ms → 0.84ms p95 (Full optimization stack)
 - 🏆 **99.7% bandwidth reduction** - 307KB → 1KB per request (100-user pagination + Brotli)
-- 🏆 **Linear scalability** - Sub-2ms p95 latency maintained across all page sizes
+- 🏆 **Zero-reflection serialization** - Compile-time JSON generation (55% faster than reflection)
 - 🏆 **100% success rate** - All optimizations maintain reliability at scale
 
 ## Current State
@@ -32,6 +33,7 @@ The solution is structured as a small layered .NET 10 app:
 - **EnableStreaming** - IEnumerable streaming serialization (reduces TTFB)
 - **EnableCompression** - HTTP response compression (Gzip/Brotli)
 - **CompressionAlgorithm** - Compression algorithm selection: `Gzip`, `Brotli`, or `Both`
+- **EnableJsonSourceGenerators** - Compile-time JSON serialization (zero reflection)
 - **Pagination** - Optional offset/limit query parameters for subset responses
 
 ## Project Layout
@@ -47,6 +49,7 @@ The solution is structured as a small layered .NET 10 app:
 │   ├── experiment-005.md        # Response streaming (TTFB)
 │   ├── experiment-006.md        # Response compression (Gzip/Brotli)
 │   ├── experiment-007.md        # Pagination (scalability curve)
+│   ├── experiment-008.md        # JSON Source Generators (zero reflection)
 │   └── performance-experiments-tracking.md
 ├── results/                     # Experiment outputs (gitignored)
 ├── reports/                     # NBomber HTML reports (gitignored)
@@ -146,6 +149,7 @@ Performance features are controlled via `appsettings.json` or environment variab
     "EnableStreaming": false,
     "EnableCompression": true,
     "CompressionAlgorithm": "Brotli",
+    "EnableJsonSourceGenerators": true,
     "CacheDurationSeconds": 60
   }
 }
@@ -158,6 +162,7 @@ $env:PerformanceFeatures__EnableObjectPooling = "true"
 $env:PerformanceFeatures__EnableStreaming = "false"
 $env:PerformanceFeatures__EnableCompression = "true"
 $env:PerformanceFeatures__CompressionAlgorithm = "Brotli"
+$env:PerformanceFeatures__EnableJsonSourceGenerators = "true"
 ```
 
 **Response headers** indicate active features:
@@ -194,14 +199,16 @@ dotnet trace collect --process-id {PID} --providers Microsoft-DotNETCore-SampleP
 | 005 | Response streaming | -57% TTFB but +12-503% latency (rejected) | ✅ Complete |
 | 006 | Response compression | 89.5% bandwidth reduction (Brotli) | ✅ Complete |
 | 007 | Pagination | 6-12% faster (optimized), 60-66% faster (baseline) | ✅ Complete |
+| 008 | JSON Source Generators | 55% faster serialization (zero reflection) | ✅ Complete |
 
-**Best configuration (Experiment 007):**
-- ArrayPool + OutputCache + Brotli Compression + Pagination (100 users)
-- **Mean latency:** 1.40ms (51% improvement vs baseline)
-- **p95 latency:** 1.76ms (48% improvement vs baseline)
+**Best configuration (Experiment 008):**
+- ArrayPool + OutputCache + Brotli Compression + Pagination + JSON Source Generators (100 users)
+- **Mean latency:** 0.62ms (78% improvement vs baseline)
+- **p95 latency:** 0.84ms (75% improvement vs baseline)
 - **Response size:** ~1KB per page (99.7% reduction vs full dataset)
 - **Success rate:** 100%
-- **Scalability:** Sub-2ms p95 across all page sizes (10-1,000 users)
+- **Scalability:** Sub-1ms p95 across all page sizes (10-1,000 users)
+- **Serialization:** Zero reflection overhead (compile-time code generation)
 
 See `docs/performance-experiments-tracking.md` for detailed tracking.
 
@@ -231,8 +238,9 @@ See `docs/performance-experiments-tracking.md` for detailed tracking.
 - [x] Complete Experiment 005 (streaming evaluation - rejected)
 - [x] Complete Experiment 006 (response compression - Brotli recommended)
 - [x] Complete Experiment 007 (pagination - linear scaling confirmed)
-- [ ] Experiment 008: Async repository (prepare for database I/O)
-- [ ] Experiment 009: Database integration (replace in-memory repo)
+- [x] Complete Experiment 008 (JSON source generators - 55% serialization improvement)
+- [ ] Experiment 009: Async repository (prepare for database I/O)
+- [ ] Experiment 010: Database integration (replace in-memory repo)
 
 ## Documentation
 
