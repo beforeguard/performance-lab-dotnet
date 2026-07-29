@@ -2,10 +2,10 @@
 
 **Project:** PerformanceLab  
 **Date Started:** 2026-07-04  
-**Last Updated:** 2026-07-28  
-**Status:** 6 Experiments Complete, 3 Planned
+**Last Updated:** 2026-07-29  
+**Status:** 7 Experiments Complete, 2 Planned
 
-**Production Recommendation:** ✅ ArrayPool + OutputCache + Brotli Compression (Experiments 004b + 006)
+**Production Recommendation:** ✅ ArrayPool + OutputCache + Brotli + Pagination + JSON Source Generators (Experiments 004b + 006 + 007 + 008)
 
 > **Note:** This is a quick reference index. See individual `experiment-NNN.md` files and [README.md](../README.md) for complete details.
 
@@ -25,13 +25,14 @@
 | 005 | Response Streaming | ✅ Complete | -57% TTFB but +12-503% latency - **REJECTED** ❌ | [experiment-005.md](experiment-005.md) |
 | 006 | Response Compression | ✅ Complete | **-89.5% bandwidth (Brotli), +12.5% CPU** - ACCEPTED 🏆 | [experiment-006.md](experiment-006.md) |
 | 007 | Pagination | ✅ Complete | **6-12% faster (optimized), 60-66% faster (baseline)** - ACCEPTED 🏆 | [experiment-007.md](experiment-007.md) |
+| 008 | JSON Source Generators | ✅ Complete | **-55.7% mean latency, -52.3% p95** - ACCEPTED 🏆 | [experiment-008.md](experiment-008.md) |
 
 ### 🔲 Planned Experiments
 
 | # | Name | Status | Hypothesis | Expected Impact |
 |---|------|--------|------------|-----------------|
-| 008 | Async Repository | 🔲 Planned | Async patterns prepare for I/O without performance penalty | Neutral latency, improved thread pool utilization |
-| 009 | Database Integration | 🔲 Planned | EF Core + optimizations can approach in-memory performance | +50-100% latency (acceptable for persistence) |
+| 009 | Async Repository | 🔲 Planned | Async patterns prepare for I/O without performance penalty | Neutral latency, improved thread pool utilization |
+| 010 | Database Integration | 🔲 Planned | EF Core + optimizations can approach in-memory performance | +50-100% latency (acceptable for persistence) |
 
 ---
 
@@ -47,8 +48,9 @@
 | 005 - Streaming | 1.87ms | 15.91ms (+503%) | 190 KB | 100% | TTFB -57%, rejected ❌ |
 | **006 - Compression (Brotli)** | **1.80ms (-54%)** 🏆 | **2.28ms (-66%)** 🏆 | **32 KB (-89.5%)** 🏆 | **100%** | **79 bytes cached** 🚀 |
 | **007 - Pagination (100 users)** | **1.40ms (-51%)** 🏆 | **1.76ms (-48%)** 🏆 | **~1 KB (compressed)** 🏆 | **100%** | **Linear scaling** ✅ |
+| **008 - JSON Source Gen (100 users)** | **0.62ms (-78%)** 🏆 | **0.84ms (-75%)** 🏆 | **~1 KB (compressed)** 🏆 | **100%** | **Zero reflection** 🚀 |
 
-**Production Recommendation:** Enable ArrayPool + OutputCache + Brotli compression for optimal latency and bandwidth efficiency.
+**Production Recommendation:** Enable ArrayPool + OutputCache + Brotli + Pagination + JSON Source Generators for optimal performance.
 
 ---
 
@@ -62,8 +64,9 @@
 | 005 | PerformanceFeatures.cs, Program.cs, UserService.cs, UsersController.cs, TtfbMiddleware.cs (new) | EnableStreaming flag, IEnumerable return type, TTFB tracking |
 | 006 | PerformanceFeatures.cs, Program.cs, HttpClientFactory.cs, UserScenarios.cs, ResponseSizeTracker.cs (new), run-experiment.ps1 | ResponseCompression middleware, response size measurement, compression algorithms |
 | 007 | IUserRepository.cs, UserRepository.cs, UserService.cs, UsersController.cs, PagedResult.cs (new), UserScenarios.cs, Program.cs | Pagination (offset/limit), PagedResult wrapper, parameterized scenarios |
-| 008 | IUserRepository, UserRepository, UserService, UsersController | Convert to async/await (planned) |
-| 009 | UserRepository.cs, Program.cs, DbContext (new) | Replace in-memory with EF Core (planned) |
+| 008 | AppJsonSerializerContext.cs (new), PerformanceFeatures.cs, Program.cs | JSON source generators, compile-time serialization, zero reflection |
+| 009 | IUserRepository, UserRepository, UserService, UsersController | Convert to async/await (planned) |
+| 010 | UserRepository.cs, Program.cs, DbContext (new) | Replace in-memory with EF Core (planned) |
 
 ---
 
