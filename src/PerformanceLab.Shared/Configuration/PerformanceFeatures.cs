@@ -15,5 +15,6 @@ public class PerformanceFeatures
     public bool EnableStreaming { get; set; }
     public bool EnableCompression { get; set; }
     public CompressionAlgorithm CompressionAlgorithm { get; set; } = CompressionAlgorithm.Brotli;
+    public bool EnableJsonSourceGenerators { get; set; } = true;
     public int CacheDurationSeconds { get; set; } = 60;
 }

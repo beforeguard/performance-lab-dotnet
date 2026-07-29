@@ -1,10 +1,12 @@
 using PerformanceLab.Shared.Configuration;
 using PerformanceLab.Api.Middleware;
+using PerformanceLab.Api.Serialization;
 using PerformanceLab.Application.Users;
 using PerformanceLab.Application.Users.Abstractions;
 using PerformanceLab.Infrastructure.Users;
 using Microsoft.AspNetCore.ResponseCompression;
 using System.IO.Compression;
+using System.Text.Json.Serialization.Metadata;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -71,6 +73,17 @@ if (perfFeatures.EnableCompression)
     builder.Services.Configure<GzipCompressionProviderOptions>(options =>
     {
         options.Level = CompressionLevel.Fastest;
+    });
+}
+
+// Conditionally configure JSON source generators
+if (perfFeatures.EnableJsonSourceGenerators)
+{
+    builder.Services.ConfigureHttpJsonOptions(options =>
+    {
+        // Insert source generator context at the beginning of the resolver chain
+        // This gives it priority over reflection-based serialization
+        options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default);
     });
 }
 
